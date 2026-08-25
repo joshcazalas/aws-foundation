@@ -115,10 +115,11 @@ Each plan job receives only:
 - `id-token: write` while obtaining its environment-scoped AWS session; and
 - the plan role for exactly one AWS account and environment.
 
-Plan-role trust must bind the exact repository subject, immutable repository and
-owner IDs, and GitHub Environment. Once the reusable plan workflow exists, it
-should also bind that workflow's exact `job_workflow_ref`. It cannot require
-`refs/heads/main`, because pull-request jobs use a PR merge ref.
+Plan-role trust must bind the exact immutable pull-request subject plus the
+immutable repository and owner IDs. Once the reusable plan workflow exists, it
+should also bind that workflow's exact `job_workflow_ref`. It cannot require a
+main-only GitHub Environment or `refs/heads/main`, because pull-request jobs use
+a PR merge ref.
 
 The comment aggregation job receives no AWS token and no cloud permissions. It
 receives only the minimum GitHub permission needed to find and update the pull

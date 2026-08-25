@@ -38,6 +38,7 @@ terraform/
   bootstrap/
     management-state/   Imports and hardens the management state bucket
   organization/         Organization, accounts, SCPs, access, and budgets
+  github/               Deployment environments and non-secret variables
   accounts/
     money-on-record-uat/  UAT state boundary and guarded provider
     money-on-record-prod/ Production state boundary and guarded provider
@@ -68,10 +69,11 @@ configuration.
    using the documented bootstrap commands.
 2. Import and harden it with `terraform/bootstrap/management-state`.
 3. Import existing organization resources with `terraform/organization`.
-4. Create each workload state bucket using the same narrow bootstrap procedure.
-5. Import and apply the matching root under `terraform/accounts` for each
+4. Create the GitHub deployment environments with `terraform/github`.
+5. Create each workload state bucket using the same narrow bootstrap procedure.
+6. Import and apply the matching root under `terraform/accounts` for each
    workload account.
-6. Run positive and negative access tests before granting workload permissions.
+7. Run positive and negative access tests before granting workload permissions.
 
 Exact commands and verification gates live in
 [`docs/operator-runbook.md`](docs/operator-runbook.md). No AWS apply is intended

@@ -20,6 +20,10 @@ validate-organization:
     tofu -chdir={{terraform_root}}/organization init -backend=false -input=false -lockfile=readonly
     tofu -chdir={{terraform_root}}/organization validate
 
+validate-github:
+    tofu -chdir={{terraform_root}}/github init -backend=false -input=false -lockfile=readonly
+    tofu -chdir={{terraform_root}}/github validate
+
 validate-uat:
     tofu -chdir={{terraform_root}}/accounts/money-on-record-uat init -backend=false -input=false -lockfile=readonly
     tofu -chdir={{terraform_root}}/accounts/money-on-record-uat validate
@@ -28,4 +32,4 @@ validate-prod:
     tofu -chdir={{terraform_root}}/accounts/money-on-record-prod init -backend=false -input=false -lockfile=readonly
     tofu -chdir={{terraform_root}}/accounts/money-on-record-prod validate
 
-validate: fmt lint validate-bootstrap validate-organization validate-uat validate-prod
+validate: fmt lint validate-bootstrap validate-organization validate-github validate-uat validate-prod

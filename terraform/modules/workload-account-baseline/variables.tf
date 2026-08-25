@@ -56,8 +56,13 @@ variable "github_repository_owner_id" {
   type        = string
 }
 
-variable "github_subject" {
-  description = "Exact immutable environment-scoped GitHub OIDC subject."
+variable "github_deploy_subject" {
+  description = "Exact immutable environment-scoped GitHub OIDC deployment subject."
+  type        = string
+}
+
+variable "github_plan_subject" {
+  description = "Exact immutable pull-request GitHub OIDC plan subject."
   type        = string
 }
 

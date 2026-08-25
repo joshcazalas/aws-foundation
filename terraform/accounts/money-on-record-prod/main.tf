@@ -9,7 +9,8 @@ module "baseline" {
   github_repository_id       = "1338755168"
   github_repository_owner_id = "73436834"
   github_environment         = "production"
-  github_subject             = "repo:joshcazalas@73436834/money-on-record@1338755168:environment:production"
+  github_deploy_subject      = "repo:joshcazalas@73436834/money-on-record@1338755168:environment:production"
+  github_plan_subject        = "repo:joshcazalas@73436834/money-on-record@1338755168:pull_request"
   github_actor_id            = "73436834"
 
   plan_role_name   = "MoneyOnRecordPlan"

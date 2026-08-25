@@ -1,5 +1,5 @@
 locals {
-  github_common_trust_conditions = [
+  github_repository_trust_conditions = [
     {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:repository_id"
@@ -10,16 +10,16 @@ locals {
       variable = "token.actions.githubusercontent.com:repository_owner_id"
       values   = [var.github_repository_owner_id]
     },
-    {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:environment"
-      values   = [var.github_environment]
-    },
   ]
 
   github_deploy_trust_conditions = concat(
-    local.github_common_trust_conditions,
+    local.github_repository_trust_conditions,
     [
+      {
+        test     = "StringEquals"
+        variable = "token.actions.githubusercontent.com:environment"
+        values   = [var.github_environment]
+      },
       {
         test     = "StringEquals"
         variable = "token.actions.githubusercontent.com:ref"
@@ -119,8 +119,8 @@ module "plan_role" {
   enable_oidc             = true
   oidc_provider_urls      = ["token.actions.githubusercontent.com"]
   oidc_audiences          = ["sts.amazonaws.com"]
-  oidc_subjects           = [var.github_subject]
-  trust_policy_conditions = local.github_common_trust_conditions
+  oidc_subjects           = [var.github_plan_subject]
+  trust_policy_conditions = local.github_repository_trust_conditions
 
   create_inline_policy      = var.enable_state_access
   inline_policy_permissions = local.plan_state_permissions
@@ -143,7 +143,7 @@ module "deploy_role" {
   enable_oidc             = true
   oidc_provider_urls      = ["token.actions.githubusercontent.com"]
   oidc_audiences          = ["sts.amazonaws.com"]
-  oidc_subjects           = [var.github_subject]
+  oidc_subjects           = [var.github_deploy_subject]
   trust_policy_conditions = local.github_deploy_trust_conditions
 
   create_inline_policy      = var.enable_state_access

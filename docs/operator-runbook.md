@@ -146,6 +146,33 @@ and the reviewed new budget-notification resources. Stop on any account close,
 OU deletion, policy detachment, permission-set replacement, or unfamiliar
 resource.
 
+## GitHub environments
+
+The GitHub root creates the `uat` and `production` environments in
+`joshcazalas/money-on-record`, restricts deployments to `main`, and stores only
+non-secret account, role, region, and state-bucket variables. It authenticates
+to GitHub from the `GITHUB_TOKEN` environment variable; the token must never be
+placed in a Terraform variable, backend file, plan, or state.
+
+After management state exists, initialize and plan with both authenticated
+sessions available:
+
+```bash
+export GITHUB_TOKEN="$(gh auth token)"
+
+AWS_PROFILE=mor-management tofu -chdir=terraform/github init \
+  -backend-config=backend.s3.tfbackend
+
+AWS_PROFILE=mor-management tofu -chdir=terraform/github plan \
+  -out=github.tfplan
+```
+
+Unset the shell variable after the GitHub apply and verification:
+
+```bash
+unset GITHUB_TOKEN
+```
+
 ## Account baselines
 
 Each workload account uses a physically separate root and backend. Bootstrap
@@ -188,11 +215,12 @@ public-access configuration. It may create only the reviewed bucket controls,
 GitHub OIDC provider, and empty-permission plan/deploy role shells. State access
 remains disabled until the identity-only OIDC tests pass.
 
-The deployment roles require `refs/heads/main`; production deployment also
-requires Josh's immutable actor ID. The plan roles deliberately do not require
-the main ref because GitHub pull-request jobs use a PR merge ref. They still
-require the exact immutable repository subject and IDs plus the matching GitHub
-Environment, and initially have no AWS permissions. Before plan permissions are
+The deployment roles require the exact environment-scoped subject,
+`refs/heads/main`, and matching GitHub Environment; production deployment also
+requires Josh's immutable actor ID. Plan roles instead require the exact
+immutable pull-request subject because main-only GitHub Environments cannot be
+used by pull-request jobs. Both role types require the immutable repository and
+owner IDs and initially have no AWS permissions. Before plan permissions are
 enabled, the trusted-plan workflow must be reviewed and its exact reusable
 `job_workflow_ref` condition should be added to the plan-role trust policy.
 
