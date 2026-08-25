@@ -1,0 +1,6 @@
+bucket              = "joshcazalas-aws-foundation-tfstate-357964519547"
+key                 = "aws-foundation/management-state/terraform.tfstate"
+region              = "us-east-1"
+encrypt             = true
+use_lockfile        = true
+allowed_account_ids = ["357964519547"]
