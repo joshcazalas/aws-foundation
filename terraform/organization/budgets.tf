@@ -27,9 +27,9 @@ locals {
     }
   }
 
-  member_budgets = {
-    for key, config in local.workload_accounts : key => {
-      account_id  = aws_organizations_account.workload[key].id
+  account_budgets = {
+    for key, config in local.foundation_accounts : key => {
+      account_id  = aws_organizations_account.foundation[key].id
       amount      = config.budget_amount
       environment = config.environment
       name        = "${config.name}-monthly-cost"
@@ -122,8 +122,8 @@ resource "aws_budgets_budget" "organization" {
   depends_on = [aws_sns_topic_policy.budget_alerts]
 }
 
-resource "aws_budgets_budget" "member" {
-  for_each = local.member_budgets
+resource "aws_budgets_budget" "account" {
+  for_each = local.account_budgets
 
   name         = each.value.name
   budget_type  = "COST"
@@ -151,7 +151,7 @@ resource "aws_budgets_budget" "member" {
   tags = {
     Environment = each.value.environment
     ManagedBy   = "terraform"
-    Project     = "money-on-record"
+    Project     = "aws-foundation"
     Repository  = "joshcazalas/aws-foundation"
   }
 

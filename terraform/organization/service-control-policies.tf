@@ -1,19 +1,19 @@
 locals {
-  foundation_full_aws_access_targets = {
-    management = var.management_account_id
-    root       = var.organization_root_id
-    workloads  = aws_organizations_organizational_unit.workloads.id
+  # These direct attachments already exist and are imported. AWS automatically
+  # attaches FullAWSAccess when it creates every new OU and account, so trying
+  # to create those generated attachments during the same apply is unsafe.
+  full_aws_access_targets = {
+    management     = var.management_account_id
+    root           = var.organization_root_id
+    workloads      = aws_organizations_organizational_unit.workloads.id
+    workloads-prod = aws_organizations_account.foundation["workloads-prod"].id
+    workloads-uat  = aws_organizations_account.foundation["workloads-uat"].id
   }
-
-  full_aws_access_targets = merge(
-    local.foundation_full_aws_access_targets,
-    { for key, account in aws_organizations_account.workload : key => account.id },
-  )
 }
 
 resource "aws_organizations_policy" "default_security" {
   name        = "default-aws-security"
-  description = "Adds default aws security policy blocking accounts from leaving orgs or deleting themselves. AWS adds this by defaults to accounts created after July 10th, 2026 but some accounts here predate that"
+  description = "Preserves AWS default security controls that prevent member accounts from leaving the organization or closing themselves"
   type        = "SERVICE_CONTROL_POLICY"
 
   content = jsonencode({

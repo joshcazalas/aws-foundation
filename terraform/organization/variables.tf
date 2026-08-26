@@ -39,13 +39,17 @@ variable "identity_center_principal_id" {
   default     = "c44824a8-e0c1-70ef-836c-9ee7fc11c9bf"
 }
 
-variable "workload_account_emails" {
-  description = "Unique account email aliases keyed like workload_accounts. Never commit the values."
+variable "account_emails" {
+  description = "Unique account email aliases keyed by deployment, workloads-uat, and workloads-prod. Never commit the values."
   type        = map(string)
   sensitive   = true
 
   validation {
-    condition     = alltrue([for email in values(var.workload_account_emails) : can(regex("^[^@[:space:]]+@[^@[:space:]]+$", email))])
-    error_message = "Every workload account email must be a valid email address."
+    condition = (
+      length(var.account_emails) == 3 &&
+      alltrue([for key in ["deployment", "workloads-uat", "workloads-prod"] : contains(keys(var.account_emails), key)]) &&
+      alltrue([for email in values(var.account_emails) : can(regex("^[^@[:space:]]+@[^@[:space:]]+$", email))])
+    )
+    error_message = "account_emails must contain exactly deployment, workloads-uat, and workloads-prod, each with a valid email address."
   }
 }

@@ -18,8 +18,9 @@ apply infrastructure, or enable automatic deployment.
 - Every third-party GitHub Action is pinned to its full commit SHA. A release
   tag may appear in an adjacent comment for readability, but must not be the
   executable reference.
-- CI receives no long-lived AWS credentials. AWS-backed jobs use GitHub OIDC
-  and environment-scoped, least-privilege plan roles.
+- CI receives no long-lived AWS credentials. AWS-backed jobs use GitHub OIDC to
+  assume an application/environment-specific deployment-account plan role,
+  which may assume only the matching workload-account plan role.
 - A pull-request plan is an informational post-merge preview. It is never the
   plan artifact later passed to `apply`; an apply must create and review a new,
   locked plan against current state.
@@ -113,7 +114,8 @@ Each plan job receives only:
 
 - `contents: read`;
 - `id-token: write` while obtaining its environment-scoped AWS session; and
-- the plan role for exactly one AWS account and environment.
+- the deployment-account plan role for exactly one application and environment;
+  that role's exact matching workload role is the only permitted second hop.
 
 Plan-role trust must bind the exact immutable pull-request subject plus the
 immutable repository and owner IDs. Once the reusable plan workflow exists, it
@@ -175,7 +177,7 @@ summary contains the root and result:
 
 ```html
 <details>
-<summary><code>terraform/accounts/money-on-record-prod</code> — 1 to add, 1 to change, 0 to destroy</summary>
+<summary><code>terraform/platform</code> — 1 to add, 1 to change, 0 to destroy</summary>
 
 ...formatted plan...
 

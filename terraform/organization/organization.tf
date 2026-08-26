@@ -1,14 +1,25 @@
 locals {
-  workload_accounts = {
-    money-on-record-uat = {
+  foundation_accounts = {
+    deployment = {
+      budget_amount = 5
+      environment   = "deployment"
+      name          = "deployment"
+      parent_id     = aws_organizations_organizational_unit.deployments.id
+      purpose       = "Centralized CI/CD identities and application state"
+    }
+    workloads-uat = {
       budget_amount = 5
       environment   = "uat"
-      name          = "money-on-record-uat"
+      name          = "workloads-uat"
+      parent_id     = aws_organizations_organizational_unit.nonproduction.id
+      purpose       = "Shared non-production application workloads"
     }
-    money-on-record-prod = {
+    workloads-prod = {
       budget_amount = 10
       environment   = "prod"
-      name          = "money-on-record-prod"
+      name          = "workloads-prod"
+      parent_id     = aws_organizations_organizational_unit.production.id
+      purpose       = "Shared production application workloads"
     }
   }
 }
@@ -49,20 +60,76 @@ resource "aws_organizations_organizational_unit" "workloads" {
   name      = "Workloads"
   parent_id = var.organization_root_id
 
+  tags = {
+    ManagedBy  = "terraform"
+    Repository = "joshcazalas/aws-foundation"
+  }
+
   lifecycle {
     prevent_destroy = true
   }
 }
 
-resource "aws_organizations_account" "workload" {
-  for_each = local.workload_accounts
+resource "aws_organizations_organizational_unit" "deployments" {
+  name      = "Deployments"
+  parent_id = var.organization_root_id
+
+  tags = {
+    ManagedBy  = "terraform"
+    Repository = "joshcazalas/aws-foundation"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_organizations_organizational_unit" "nonproduction" {
+  name      = "NonProduction"
+  parent_id = aws_organizations_organizational_unit.workloads.id
+
+  tags = {
+    Environment = "nonproduction"
+    ManagedBy   = "terraform"
+    Repository  = "joshcazalas/aws-foundation"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_organizations_organizational_unit" "production" {
+  name      = "Production"
+  parent_id = aws_organizations_organizational_unit.workloads.id
+
+  tags = {
+    Environment = "production"
+    ManagedBy   = "terraform"
+    Repository  = "joshcazalas/aws-foundation"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_organizations_account" "foundation" {
+  for_each = local.foundation_accounts
 
   name      = each.value.name
-  email     = var.workload_account_emails[each.key]
-  parent_id = aws_organizations_organizational_unit.workloads.id
+  email     = var.account_emails[each.key]
+  parent_id = each.value.parent_id
   role_name = "OrganizationAccountAccessRole"
 
   close_on_deletion = false
+
+  tags = {
+    Environment = each.value.environment
+    ManagedBy   = "terraform"
+    Purpose     = each.value.purpose
+    Repository  = "joshcazalas/aws-foundation"
+  }
 
   lifecycle {
     prevent_destroy = true

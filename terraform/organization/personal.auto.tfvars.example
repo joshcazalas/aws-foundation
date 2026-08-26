@@ -1,6 +1,7 @@
-# Copy this file to personal.auto.tfvars, replace both values, and chmod it 600.
+# Copy this file to personal.auto.tfvars, replace all values, and chmod it 600.
 # personal.auto.tfvars is ignored by Git. Never commit real account addresses.
-workload_account_emails = {
-  money-on-record-uat  = "replace-with-existing-uat-account-alias@example.invalid"
-  money-on-record-prod = "replace-with-existing-prod-account-alias@example.invalid"
+account_emails = {
+  deployment     = "replace-with-new-deployment-account-alias@example.invalid"
+  workloads-uat  = "replace-with-existing-uat-account-alias@example.invalid"
+  workloads-prod = "replace-with-existing-prod-account-alias@example.invalid"
 }

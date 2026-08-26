@@ -7,3 +7,8 @@ output "environments" {
     }
   }
 }
+
+output "repository_variables" {
+  description = "Non-secret repository-level variables for centralized Terraform planning."
+  value       = { for name, variable in github_actions_variable.this : name => variable.value }
+}

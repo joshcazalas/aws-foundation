@@ -4,28 +4,41 @@ Terraform-compatible infrastructure for Josh Cazalas's AWS Organizations
 foundation. OpenTofu is the authoritative CLI, while the repository uses
 Terraform language, conventions, providers, and modules.
 
-The foundation separates organization governance from application workloads:
+The foundation separates organization governance, deployment control, and
+application workloads:
 
 ```text
-AWS Organizations management account
-├── Organizations, SCPs, IAM Identity Center, budgets
-├── foundation governance state
+AWS Organization root
+├── management account
+│   ├── Organizations, SCPs, IAM Identity Center, and budgets
+│   └── foundation-only Terraform state
+├── Deployments OU
+│   └── deployment account
+│       ├── centralized application Terraform state
+│       └── GitHub OIDC and per-application/per-environment hub roles
 └── Workloads OU
-    ├── money-on-record-uat
-    └── money-on-record-prod
+    ├── NonProduction OU
+    │   └── workloads-uat
+    └── Production OU
+        └── workloads-prod
 ```
 
 Application infrastructure belongs in the application repository. This
-repository owns only organization governance, account baselines, state storage,
-and bootstrap identities.
+repository owns organization governance, the deployment platform, account
+baselines, state storage, and bootstrap identities.
 
 ## Design principles
 
-- AWS accounts are the UAT/production security boundary.
+- AWS workload accounts are the UAT/production security boundary.
 - Human access uses IAM Identity Center and short-lived sessions.
-- GitHub access uses environment-scoped OIDC; no static AWS credentials exist.
+- GitHub enters AWS once through environment-specific deployment-account roles,
+  then assumes an exact least-privilege role in the target workload account.
+- Application roots use named `uat` and `production` CLI workspaces against one
+  shared configuration; the `default` workspace is not deployable.
 - Organization and state resources are protected from accidental destruction.
-- Terraform state uses private, versioned S3 buckets with native lockfiles.
+- Foundation state remains in management. Application state is centralized in
+  the deployment account and separated by application, component, and workspace.
+- Terraform state uses private, versioned S3 buckets with native S3 lockfiles.
 - `terraform-aws-modules` is pinned exactly where its abstraction fits.
 - Organization and account changes are applied manually until the complete
   workflow has been reviewed and proven.
@@ -38,17 +51,23 @@ terraform/
   bootstrap/
     management-state/   Imports and hardens the management state bucket
   organization/         Organization, accounts, SCPs, access, and budgets
+  platform/             Deployment state, OIDC hub, and workload execution roles
   github/               Deployment environments and non-secret variables
-  accounts/
-    money-on-record-uat/  UAT state boundary and guarded provider
-    money-on-record-prod/ Production state boundary and guarded provider
   modules/
-    workload-account-baseline/ Reusable state and OIDC baseline
+    github-environment-roles/    Reusable OIDC hub-role pair
+    workload-execution-baseline/ Reusable workload-account role pair
 ```
 
-Each runnable root has a separate state boundary. The two small workload-account
-roots call the same baseline module while pinning their own account ID, backend,
-environment, and immutable GitHub OIDC claims.
+Each runnable foundation root has a separate state boundary. The platform root
+uses aliased AWS providers to assume `OrganizationAccountAccessRole` from an
+authenticated management session while establishing the long-term deployment
+role chain. Application roots live in their application repositories and assume
+those roles without management-account access.
+
+The S3 account-public-access and IAM role abstractions use exact releases of
+`terraform-aws-modules`. State buckets use direct AWS resources because the
+upstream bucket module does not expose the resource-level `prevent_destroy`
+lifecycle guard required here.
 
 ## Tooling
 
@@ -65,15 +84,19 @@ configuration.
 
 ## Bootstrap order
 
-1. Create only the management state bucket and its minimum backend protections
-   using the documented bootstrap commands.
-2. Import and harden it with `terraform/bootstrap/management-state`.
-3. Import existing organization resources with `terraform/organization`.
-4. Create the GitHub deployment environments with `terraform/github`.
-5. Create each workload state bucket using the same narrow bootstrap procedure.
-6. Import and apply the matching root under `terraform/accounts` for each
-   workload account.
-7. Run positive and negative access tests before granting workload permissions.
+1. Create only the management state bucket and its minimum backend protections,
+   then import and harden it with `terraform/bootstrap/management-state`.
+2. Import existing organization resources and create the reviewed account/OU
+   structure with `terraform/organization`.
+3. Add the deployment account to local IAM Identity Center profiles and finish
+   its out-of-band root/contact checks.
+4. Create the centralized state bucket and identity-only role chain with
+   `terraform/platform`.
+5. Create the GitHub deployment environments and non-secret variables with
+   `terraform/github`.
+6. Run positive and negative OIDC role-chain tests.
+7. Enable state access in `terraform/platform`, retest, and only then permit an
+   application repository to initialize named workspaces.
 
 Exact commands and verification gates live in
 [`docs/operator-runbook.md`](docs/operator-runbook.md). No AWS apply is intended

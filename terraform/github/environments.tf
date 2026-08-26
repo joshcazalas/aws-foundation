@@ -1,26 +1,37 @@
 locals {
   repository_name = "money-on-record"
 
+  account_ids            = data.terraform_remote_state.organization.outputs.account_ids
+  deployment_account_id  = local.account_ids["deployment"]
+  application_state_name = "joshcazalas-deployment-tfstate-${local.deployment_account_id}"
+
   environments = {
     uat = {
-      account_id        = "732006412638"
-      deploy_role_name  = "MoneyOnRecordDeployUat"
-      state_bucket_name = "money-on-record-uat-732006412638-tfstate"
+      account_id               = local.account_ids["workloads-uat"]
+      hub_deploy_role_name     = "MoneyOnRecordDeployUat"
+      hub_plan_role_name       = "MoneyOnRecordPlanUat"
+      workload_deploy_role_arn = "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/MoneyOnRecordTerraformDeploy"
+      workload_plan_role_arn   = "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/MoneyOnRecordTerraformPlan"
     }
     production = {
-      account_id        = "134604497564"
-      deploy_role_name  = "MoneyOnRecordDeployProd"
-      state_bucket_name = "money-on-record-prod-134604497564-tfstate"
+      account_id               = local.account_ids["workloads-prod"]
+      hub_deploy_role_name     = "MoneyOnRecordDeployProd"
+      hub_plan_role_name       = "MoneyOnRecordPlanProd"
+      workload_deploy_role_arn = "arn:aws:iam::${local.account_ids["workloads-prod"]}:role/MoneyOnRecordTerraformDeploy"
+      workload_plan_role_arn   = "arn:aws:iam::${local.account_ids["workloads-prod"]}:role/MoneyOnRecordTerraformPlan"
     }
   }
 
   environment_variables = merge([
     for environment, config in local.environments : {
       for name, value in {
-        AWS_ACCOUNT_ID  = config.account_id
-        AWS_REGION      = "us-east-1"
-        AWS_ROLE_ARN    = "arn:aws:iam::${config.account_id}:role/${config.deploy_role_name}"
-        TF_STATE_BUCKET = config.state_bucket_name
+        AWS_ACCOUNT_ID            = config.account_id
+        AWS_DEPLOYMENT_ACCOUNT_ID = local.deployment_account_id
+        AWS_REGION                = "us-east-1"
+        AWS_ROLE_ARN              = "arn:aws:iam::${local.deployment_account_id}:role/${config.hub_deploy_role_name}"
+        AWS_WORKLOAD_ROLE_ARN     = config.workload_deploy_role_arn
+        TF_STATE_BUCKET           = local.application_state_name
+        TF_WORKSPACE              = environment
         } : "${environment}:${name}" => {
         environment = environment
         name        = name
@@ -28,6 +39,20 @@ locals {
       }
     }
   ]...)
+
+  repository_variables = merge(
+    {
+      AWS_DEPLOYMENT_ACCOUNT_ID = local.deployment_account_id
+      AWS_REGION                = "us-east-1"
+      TF_STATE_BUCKET           = local.application_state_name
+    },
+    merge([
+      for environment, config in local.environments : {
+        "AWS_PLAN_ROLE_ARN_${upper(environment)}"          = "arn:aws:iam::${local.deployment_account_id}:role/${config.hub_plan_role_name}"
+        "AWS_WORKLOAD_PLAN_ROLE_ARN_${upper(environment)}" = config.workload_plan_role_arn
+      }
+    ]...),
+  )
 }
 
 resource "github_repository_environment" "this" {
@@ -64,4 +89,12 @@ resource "github_actions_environment_variable" "this" {
   environment   = github_repository_environment.this[each.value.environment].environment
   variable_name = each.value.name
   value         = each.value.value
+}
+
+resource "github_actions_variable" "this" {
+  for_each = local.repository_variables
+
+  repository    = local.repository_name
+  variable_name = each.key
+  value         = each.value
 }

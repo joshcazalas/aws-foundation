@@ -14,7 +14,7 @@ locals {
 
   identity_center_account_targets = merge(
     { management = var.management_account_id },
-    { for key, account in aws_organizations_account.workload : key => account.id },
+    { for key, account in aws_organizations_account.foundation : key => account.id },
   )
 
   identity_center_assignment_pairs = {

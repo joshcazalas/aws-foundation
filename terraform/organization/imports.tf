@@ -14,13 +14,13 @@ import {
 }
 
 import {
-  to = aws_organizations_account.workload["money-on-record-uat"]
-  id = "732006412638"
+  to = aws_organizations_account.foundation["workloads-prod"]
+  id = "134604497564"
 }
 
 import {
-  to = aws_organizations_account.workload["money-on-record-prod"]
-  id = "134604497564"
+  to = aws_organizations_account.foundation["workloads-uat"]
+  id = "732006412638"
 }
 
 import {
@@ -39,7 +39,7 @@ import {
 }
 
 import {
-  to = aws_organizations_policy_attachment.full_aws_access["money-on-record-prod"]
+  to = aws_organizations_policy_attachment.full_aws_access["workloads-prod"]
   id = "134604497564:p-FullAWSAccess"
 }
 
@@ -49,7 +49,7 @@ import {
 }
 
 import {
-  to = aws_organizations_policy_attachment.full_aws_access["money-on-record-uat"]
+  to = aws_organizations_policy_attachment.full_aws_access["workloads-uat"]
   id = "732006412638:p-FullAWSAccess"
 }
 
@@ -89,21 +89,21 @@ import {
 }
 
 import {
-  to = aws_ssoadmin_account_assignment.this["money-on-record-prod:bootstrap-administrator"]
+  to = aws_ssoadmin_account_assignment.this["workloads-prod:bootstrap-administrator"]
   id = "c44824a8-e0c1-70ef-836c-9ee7fc11c9bf,USER,134604497564,AWS_ACCOUNT,arn:aws:sso:::permissionSet/ssoins-7223f0f0b061900d/ps-7223b58c497d8681,arn:aws:sso:::instance/ssoins-7223f0f0b061900d"
 }
 
 import {
-  to = aws_ssoadmin_account_assignment.this["money-on-record-prod:read-only"]
+  to = aws_ssoadmin_account_assignment.this["workloads-prod:read-only"]
   id = "c44824a8-e0c1-70ef-836c-9ee7fc11c9bf,USER,134604497564,AWS_ACCOUNT,arn:aws:sso:::permissionSet/ssoins-7223f0f0b061900d/ps-7223ec2a3cf4825b,arn:aws:sso:::instance/ssoins-7223f0f0b061900d"
 }
 
 import {
-  to = aws_ssoadmin_account_assignment.this["money-on-record-uat:bootstrap-administrator"]
+  to = aws_ssoadmin_account_assignment.this["workloads-uat:bootstrap-administrator"]
   id = "c44824a8-e0c1-70ef-836c-9ee7fc11c9bf,USER,732006412638,AWS_ACCOUNT,arn:aws:sso:::permissionSet/ssoins-7223f0f0b061900d/ps-7223b58c497d8681,arn:aws:sso:::instance/ssoins-7223f0f0b061900d"
 }
 
 import {
-  to = aws_ssoadmin_account_assignment.this["money-on-record-uat:read-only"]
+  to = aws_ssoadmin_account_assignment.this["workloads-uat:read-only"]
   id = "c44824a8-e0c1-70ef-836c-9ee7fc11c9bf,USER,732006412638,AWS_ACCOUNT,arn:aws:sso:::permissionSet/ssoins-7223f0f0b061900d/ps-7223ec2a3cf4825b,arn:aws:sso:::instance/ssoins-7223f0f0b061900d"
 }

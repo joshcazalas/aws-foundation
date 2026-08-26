@@ -13,7 +13,22 @@ output "workloads_ou_id" {
   value       = aws_organizations_organizational_unit.workloads.id
 }
 
-output "workload_account_ids" {
-  description = "Account IDs keyed by environment."
-  value       = { for key, account in aws_organizations_account.workload : key => account.id }
+output "deployments_ou_id" {
+  description = "Deployments organizational unit ID."
+  value       = aws_organizations_organizational_unit.deployments.id
+}
+
+output "nonproduction_ou_id" {
+  description = "NonProduction organizational unit ID."
+  value       = aws_organizations_organizational_unit.nonproduction.id
+}
+
+output "production_ou_id" {
+  description = "Production organizational unit ID."
+  value       = aws_organizations_organizational_unit.production.id
+}
+
+output "account_ids" {
+  description = "Foundation account IDs keyed by deployment, workloads-uat, and workloads-prod."
+  value       = { for key, account in aws_organizations_account.foundation : key => account.id }
 }
