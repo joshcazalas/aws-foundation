@@ -8,24 +8,24 @@ No command here uses a static AWS credential.
 - OpenTofu 1.12.x
 - AWS CLI v2
 - Authenticated IAM Identity Center profiles:
-  - `mor-management`
-  - `mor-management-readonly`
-  - `mor-uat`
-  - `mor-uat-readonly`
-  - `mor-prod`
-  - `mor-prod-readonly`
+  - `management`
+  - `management-readonly`
+  - `uat`
+  - `uat-readonly`
+  - `production`
+  - `production-readonly`
 - A local, ignored `terraform/organization/personal.auto.tfvars` containing the
   existing workload-account email aliases and a new deployment-account alias
 
 After the organization root creates the deployment account, add and test:
 
-- `mor-deployment`
-- `mor-deployment-readonly`
+- `deployment`
+- `deployment-readonly`
 
 Verify identity before every plan or apply:
 
 ```bash
-aws sts get-caller-identity --profile mor-management
+aws sts get-caller-identity --profile management
 ```
 
 The expected management account is `357964519547`. Stop immediately if the
@@ -53,8 +53,8 @@ joshcazalas-aws-foundation-tfstate-357964519547
 1. Refresh the administrator session and prove the target account:
 
    ```bash
-   aws sso login --profile mor-management
-   aws sts get-caller-identity --profile mor-management
+   aws sso login --profile management
+   aws sts get-caller-identity --profile management
    ```
 
    The returned account must be `357964519547`.
@@ -64,7 +64,7 @@ joshcazalas-aws-foundation-tfstate-357964519547
    ```bash
    aws s3api head-bucket \
      --bucket joshcazalas-aws-foundation-tfstate-357964519547 \
-     --profile mor-management
+     --profile management
    ```
 
    For this first bootstrap only, `404` is expected. Stop on success, `403`, or
@@ -76,7 +76,7 @@ joshcazalas-aws-foundation-tfstate-357964519547
    aws s3api create-bucket \
      --bucket joshcazalas-aws-foundation-tfstate-357964519547 \
      --region us-east-1 \
-     --profile mor-management
+     --profile management
    ```
 
 4. Before writing state, enable all four bucket public-access blocks,
@@ -87,35 +87,35 @@ joshcazalas-aws-foundation-tfstate-357964519547
      --bucket joshcazalas-aws-foundation-tfstate-357964519547 \
      --public-access-block-configuration \
        BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true \
-     --profile mor-management
+     --profile management
 
    aws s3api put-bucket-versioning \
      --bucket joshcazalas-aws-foundation-tfstate-357964519547 \
      --versioning-configuration Status=Enabled \
-     --profile mor-management
+     --profile management
 
    aws s3api put-bucket-encryption \
      --bucket joshcazalas-aws-foundation-tfstate-357964519547 \
      --server-side-encryption-configuration \
        '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"},"BucketKeyEnabled":false}]}' \
-     --profile mor-management
+     --profile management
 
    aws s3api put-bucket-ownership-controls \
      --bucket joshcazalas-aws-foundation-tfstate-357964519547 \
      --ownership-controls '{"Rules":[{"ObjectOwnership":"BucketOwnerEnforced"}]}' \
-     --profile mor-management
+     --profile management
    ```
 
 5. Initialize the backend and create a saved plan:
 
 ```bash
-AWS_PROFILE=mor-management tofu -chdir=terraform/bootstrap/management-state init \
+AWS_PROFILE=management tofu -chdir=terraform/bootstrap/management-state init \
   -backend-config=backend.s3.tfbackend
 
-AWS_PROFILE=mor-management tofu -chdir=terraform/bootstrap/management-state plan \
+AWS_PROFILE=management tofu -chdir=terraform/bootstrap/management-state plan \
   -out=management-state.tfplan
 
-AWS_PROFILE=mor-management tofu -chdir=terraform/bootstrap/management-state \
+AWS_PROFILE=management tofu -chdir=terraform/bootstrap/management-state \
   show management-state.tfplan
 ```
 
@@ -142,13 +142,13 @@ chmod 600 terraform/organization/personal.auto.tfvars
 Then initialize and plan:
 
 ```bash
-AWS_PROFILE=mor-management tofu -chdir=terraform/organization init \
+AWS_PROFILE=management tofu -chdir=terraform/organization init \
   -backend-config=backend.s3.tfbackend
 
-AWS_PROFILE=mor-management tofu -chdir=terraform/organization plan \
+AWS_PROFILE=management tofu -chdir=terraform/organization plan \
   -out=organization.tfplan
 
-AWS_PROFILE=mor-management tofu -chdir=terraform/organization \
+AWS_PROFILE=management tofu -chdir=terraform/organization \
   show organization.tfplan
 ```
 
@@ -216,17 +216,17 @@ After an explicitly approved organization apply:
    confirm the current user has both `BootstrapAdministrator` and `ReadOnly`.
    Test both portal entries before continuing.
 
-3. Add `mor-deployment` and `mor-deployment-readonly` SSO profiles using the
+3. Add `deployment` and `deployment-readonly` SSO profiles using the
    same SSO session, start URL, region, and permission-set names as the existing
    profiles. Then prove every identity:
 
    ```bash
-   aws sso login --profile mor-deployment
-   aws sts get-caller-identity --profile mor-deployment
-   aws sts get-caller-identity --profile mor-deployment-readonly
-   aws sts get-caller-identity --profile mor-management
-   aws sts get-caller-identity --profile mor-uat
-   aws sts get-caller-identity --profile mor-prod
+   aws sso login --profile deployment
+   aws sts get-caller-identity --profile deployment
+   aws sts get-caller-identity --profile deployment-readonly
+   aws sts get-caller-identity --profile management
+   aws sts get-caller-identity --profile uat
+   aws sts get-caller-identity --profile production
    ```
 
    Both deployment profiles must return the new deployment account ID. The
@@ -245,7 +245,7 @@ After an explicitly approved organization apply:
 
 ## Deployment platform
 
-The platform root is authenticated with `mor-management` only for bootstrap.
+The platform root is authenticated with `management` only for bootstrap.
 Its aliased AWS providers assume the existing
 `OrganizationAccountAccessRole` in deployment, UAT, and production. It creates:
 
@@ -265,16 +265,16 @@ Initialize and plan only after the organization apply and post-account checks
 are complete:
 
 ```bash
-aws sso login --profile mor-management
-aws sts get-caller-identity --profile mor-management
+aws sso login --profile management
+aws sts get-caller-identity --profile management
 
-AWS_PROFILE=mor-management tofu -chdir=terraform/platform init \
+AWS_PROFILE=management tofu -chdir=terraform/platform init \
   -backend-config=backend.s3.tfbackend
 
-AWS_PROFILE=mor-management tofu -chdir=terraform/platform plan \
+AWS_PROFILE=management tofu -chdir=terraform/platform plan \
   -out=platform-identity.tfplan
 
-AWS_PROFILE=mor-management tofu -chdir=terraform/platform \
+AWS_PROFILE=management tofu -chdir=terraform/platform \
   show platform-identity.tfplan
 ```
 
@@ -305,10 +305,10 @@ sessions available:
 ```bash
 export GITHUB_TOKEN="$(gh auth token)"
 
-AWS_PROFILE=mor-management tofu -chdir=terraform/github init \
+AWS_PROFILE=management tofu -chdir=terraform/github init \
   -backend-config=backend.s3.tfbackend
 
-AWS_PROFILE=mor-management tofu -chdir=terraform/github plan \
+AWS_PROFILE=management tofu -chdir=terraform/github plan \
   -out=github.tfplan
 ```
 
