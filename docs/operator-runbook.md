@@ -169,6 +169,13 @@ The first plan is expected to:
 - create the organization, deployment, UAT, and production budgets plus their
   SNS notification path.
 
+If the original organization root was applied before the deployment-hub
+refactor, the plan also reports address-only moves for the two existing
+accounts, their direct FullAWSAccess attachments, four Identity Center
+assignments, and two linked-account budgets. These moves preserve the remote
+objects and are not destroys, imports, or replacements. Do not remove
+`prevent_destroy` to perform this migration.
+
 Before considering apply, inspect the machine-readable action list:
 
 ```bash
