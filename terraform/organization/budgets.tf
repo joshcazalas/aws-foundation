@@ -53,7 +53,19 @@ data "aws_iam_policy_document" "budget_alerts" {
     sid    = "AllowManagementAccountAdministration"
     effect = "Allow"
 
-    actions   = ["sns:*"]
+    # SNS validates topic-resource policies against the subset of actions that
+    # support a topic ARN. A service-wide wildcard includes account-scoped SNS
+    # operations and is rejected by SetTopicAttributes.
+    actions = [
+      "sns:AddPermission",
+      "sns:DeleteTopic",
+      "sns:GetTopicAttributes",
+      "sns:ListSubscriptionsByTopic",
+      "sns:Publish",
+      "sns:RemovePermission",
+      "sns:SetTopicAttributes",
+      "sns:Subscribe",
+    ]
     resources = [aws_sns_topic.budget_alerts.arn]
 
     principals {
