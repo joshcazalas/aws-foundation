@@ -133,6 +133,12 @@ resource "aws_organizations_account" "foundation" {
 
   lifecycle {
     prevent_destroy = true
-    ignore_changes  = [role_name]
+    # The AWS provider models email changes as account replacement. Email is
+    # still used when an account is first created, but later contact/address
+    # changes must never turn into an account close-and-recreate plan.
+    ignore_changes = [
+      email,
+      role_name,
+    ]
   }
 }

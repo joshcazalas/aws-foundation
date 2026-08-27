@@ -192,8 +192,10 @@ tofu -chdir=terraform/organization show -json organization.tfplan |
 ```
 
 Stop on any destroy, account close, replacement, OU deletion, policy
-detachment, permission-set replacement, change to an account email, or
-unfamiliar resource. A successful plan is still not authorization to apply.
+detachment, permission-set replacement, or unfamiliar resource. Existing
+account email drift is intentionally ignored because the AWS provider models
+that field as replacement-only; the configured deployment email is still used
+when creating the new account.
 
 ### Post-organization account checks
 
