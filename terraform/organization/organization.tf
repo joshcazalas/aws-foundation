@@ -29,6 +29,7 @@ resource "aws_organizations_organization" "foundation" {
 
   enabled_policy_types = ["SERVICE_CONTROL_POLICY"]
   aws_service_access_principals = [
+    "account.amazonaws.com",
     "iam.amazonaws.com",
     "sso.amazonaws.com",
   ]
@@ -116,6 +117,10 @@ resource "aws_organizations_organizational_unit" "production" {
 
 resource "aws_organizations_account" "foundation" {
   for_each = local.foundation_accounts
+
+  # Account name updates use the Account Management API, which requires the
+  # organization-level account.amazonaws.com trusted-access integration.
+  depends_on = [aws_organizations_organization.foundation]
 
   name      = each.value.name
   email     = var.account_emails[each.key]
