@@ -8,8 +8,8 @@ variable "enable_money_on_record_state_access" {
   description = "Enable central state permissions after each environment's identity-only role-chain test passes."
   type        = map(bool)
   default = {
-    production = false
-    uat        = false
+    production = true
+    uat        = true
   }
 
   validation {
@@ -18,6 +18,23 @@ variable "enable_money_on_record_state_access" {
       alltrue([for key in ["production", "uat"] : contains(keys(var.enable_money_on_record_state_access), key)])
     )
     error_message = "enable_money_on_record_state_access must contain exactly production and uat."
+  }
+}
+
+variable "enable_money_on_record_workload_access" {
+  description = "Enable reviewed static-site read permissions for plan roles and deployment permissions for deploy roles."
+  type        = map(bool)
+  default = {
+    production = true
+    uat        = true
+  }
+
+  validation {
+    condition = (
+      length(var.enable_money_on_record_workload_access) == 2 &&
+      alltrue([for key in ["production", "uat"] : contains(keys(var.enable_money_on_record_workload_access), key)])
+    )
+    error_message = "enable_money_on_record_workload_access must contain exactly production and uat."
   }
 }
 
@@ -33,15 +50,23 @@ variable "management_account_id" {
 }
 
 variable "money_on_record_deploy_job_workflow_ref" {
-  description = "Optional exact reusable GitHub deployment workflow ref enforced in OIDC trust after it exists."
+  description = "Exact main-branch reusable GitHub deployment workflow ref enforced in OIDC trust."
   type        = string
-  default     = null
-  nullable    = true
+  default     = "joshcazalas/money-on-record/.github/workflows/reusable-terraform-deploy.yml@refs/heads/main"
+
+  validation {
+    condition     = var.money_on_record_deploy_job_workflow_ref == "joshcazalas/money-on-record/.github/workflows/reusable-terraform-deploy.yml@refs/heads/main"
+    error_message = "money_on_record_deploy_job_workflow_ref must identify the reviewed main-branch reusable deployment workflow."
+  }
 }
 
 variable "money_on_record_plan_job_workflow_ref" {
-  description = "Optional exact reusable GitHub plan workflow ref; it must be set before state access is enabled."
+  description = "Exact main-branch reusable GitHub plan workflow ref enforced in OIDC trust."
   type        = string
-  default     = null
-  nullable    = true
+  default     = "joshcazalas/money-on-record/.github/workflows/reusable-terraform-plan.yml@refs/heads/main"
+
+  validation {
+    condition     = var.money_on_record_plan_job_workflow_ref == "joshcazalas/money-on-record/.github/workflows/reusable-terraform-plan.yml@refs/heads/main"
+    error_message = "money_on_record_plan_job_workflow_ref must identify the reviewed main-branch reusable plan workflow."
+  }
 }

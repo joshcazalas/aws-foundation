@@ -49,10 +49,12 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
 
     precondition {
       condition = (
-        !anytrue(values(var.enable_money_on_record_state_access)) ||
-        var.money_on_record_plan_job_workflow_ref != null
+        !anytrue(values(var.enable_money_on_record_state_access)) || (
+          var.money_on_record_plan_job_workflow_ref != null &&
+          var.money_on_record_deploy_job_workflow_ref != null
+        )
       )
-      error_message = "Set an exact money_on_record_plan_job_workflow_ref before enabling any Money on Record state access."
+      error_message = "Set exact plan and deploy job_workflow_ref values before enabling any Money on Record state access."
     }
   }
 }

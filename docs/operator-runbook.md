@@ -256,10 +256,11 @@ Its aliased AWS providers assume the existing
 - account-level S3 Block Public Access in deployment while importing the
   already-enabled controls in UAT and production.
 
-The initial configuration gives hub roles only permission to assume their exact
-workload role. State access is intentionally disabled, and workload roles have
-no workload permissions. This supports identity-only testing without granting
-deployment capability.
+The bootstrap configuration gives hub roles only permission to assume their
+exact workload role. State access and workload permissions remain behind
+separate enablement maps until identity-only testing succeeds. This supports
+testing all positive and negative role-chain boundaries before granting state
+or deployment capability.
 
 Initialize and plan only after the organization apply and post-account checks
 are complete:
@@ -343,18 +344,67 @@ role, and the UAT role cannot read production state. Coordinate this workflow
 with the Money on Record source-code agent; this foundation task does not modify
 that repository.
 
-Only after those tests succeed should a reviewed foundation change set
-`money_on_record_plan_job_workflow_ref` to the exact trusted reusable workflow
-on `main` and set `enable_money_on_record_state_access` to true for the proven
-environment. Terraform rejects state enablement while that workflow condition
-is absent. The subsequent platform plan must add only the exact workflow-ref
-trust condition plus exact state-object and lock-object permissions. Plan roles
-receive read-only state access and no lock writes; deploy roles receive state
-read/write plus lock read/write/delete. Neither may read another application's
-or environment's state object. Because OpenTofu enumerates named workspaces by
-listing the component's `workspace_key_prefix`, both environments may see
-object names beneath the same component prefix; that metadata-only list
+After those tests succeed, bind both hub-role trust policies to these exact
+main-branch reusable workflows:
+
+```text
+joshcazalas/money-on-record/.github/workflows/reusable-terraform-plan.yml@refs/heads/main
+joshcazalas/money-on-record/.github/workflows/reusable-terraform-deploy.yml@refs/heads/main
+```
+
+Then enable `enable_money_on_record_state_access` and
+`enable_money_on_record_workload_access` for each proven environment. OpenTofu
+rejects state enablement while either exact workflow condition is absent. Plan
+hub roles receive read-only state access and no lock writes; deploy hub roles
+receive state read/write plus lock read/write/delete. Neither may read another
+application's or environment's state object. Because OpenTofu enumerates named
+workspaces by listing the component's `workspace_key_prefix`, both environments
+may see object names beneath the same component prefix; that metadata-only list
 permission does not grant `GetObject` on the other environment's state.
+
+The workload plan roles receive only the S3 and CloudFront reads required to
+refresh the current static-site root. Workload deploy roles receive those reads
+plus lifecycle management for the environment's deterministic site-bucket ARN,
+its account-local CloudFront origin access controls, and distributions carrying
+both `Project=money-on-record` and the matching `Environment` tag. CloudFront
+managed-policy list APIs and origin-access-control creation require
+`Resource = "*"`; do not broaden any other statement to compensate. Artifact
+object uploads, CloudFront invalidations, ACM, WAF, ECS, and ETL permissions are
+not included and require later reviewed foundation changes when their workflows
+and resources exist.
+
+Create and inspect the final access plan:
+
+```bash
+AWS_PROFILE=management tofu -chdir=terraform/platform plan \
+  -out=platform-access.tfplan
+
+tofu -chdir=terraform/platform show platform-access.tfplan
+
+tofu -chdir=terraform/platform show -json platform-access.tfplan |
+  jq -r '
+    .resource_changes[] |
+    [.address, (.change.actions | join(","))] |
+    @tsv
+  '
+```
+
+For the first completed Money on Record gate, the plan is expected to report
+`4 to add, 8 to change, 0 to destroy`: four new workload-account inline
+policies, four in-place hub-role trust updates, and four in-place hub-role state
+policy updates. Every other resource must be `no-op`. Stop on any replacement,
+destroy, cross-environment ARN, wildcard principal, untagged CloudFront
+distribution mutation, or workload-account object permission.
+
+Validate every generated IAM policy with IAM Access Analyzer before requesting
+authorization for this exact saved plan. Apply only that reviewed saved plan,
+then create a fresh no-change plan and read back every hub trust policy and
+inline policy. The earlier standalone identity-test workflow should no longer
+be able to assume these hubs because its `job_workflow_ref` is intentionally not
+trusted. Hand control back to the application repository so its reviewed
+permanent reusable workflows can replace their bootstrap guards. Their first
+live runs must re-prove the positive chains, cross-environment denials, exact
+state boundaries, and plan-role write denials before workload apply is allowed.
 
 Application roots then use the single centralized bucket with component
 prefixes such as `money-on-record/shared`, `money-on-record/static-site`, and

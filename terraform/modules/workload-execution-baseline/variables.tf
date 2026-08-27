@@ -42,3 +42,31 @@ variable "plan_role_name" {
   description = "Exact workload-account Terraform plan role name."
   type        = string
 }
+
+variable "plan_role_policy_permissions" {
+  description = "Reviewed read-only IAM policy statements attached to the workload plan role."
+  type = map(object({
+    actions   = list(string)
+    resources = list(string)
+    condition = optional(list(object({
+      test     = string
+      variable = string
+      values   = list(string)
+    })), [])
+  }))
+  default = {}
+}
+
+variable "deploy_role_policy_permissions" {
+  description = "Reviewed IAM policy statements attached to the workload deployment role."
+  type = map(object({
+    actions   = list(string)
+    resources = list(string)
+    condition = optional(list(object({
+      test     = string
+      variable = string
+      values   = list(string)
+    })), [])
+  }))
+  default = {}
+}

@@ -33,6 +33,9 @@ module "plan_role" {
     }
   }
 
+  create_inline_policy      = length(var.plan_role_policy_permissions) > 0
+  inline_policy_permissions = var.plan_role_policy_permissions
+
   tags = {
     Application = var.application_name
     Component   = "terraform-execution"
@@ -62,6 +65,9 @@ module "deploy_role" {
       }]
     }
   }
+
+  create_inline_policy      = length(var.deploy_role_policy_permissions) > 0
+  inline_policy_permissions = var.deploy_role_policy_permissions
 
   tags = {
     Application = var.application_name

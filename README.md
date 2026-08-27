@@ -95,8 +95,11 @@ configuration.
 5. Create the GitHub deployment environments and non-secret variables with
    `terraform/github`.
 6. Run positive and negative OIDC role-chain tests.
-7. Enable state access in `terraform/platform`, retest, and only then permit an
-   application repository to initialize named workspaces.
+7. After the identity gate passes and permanent reusable workflows reach
+   `main`, bind their exact `job_workflow_ref` claims and enable scoped state and
+   workload permissions in `terraform/platform`.
+8. Retest the tightened chains before permitting an application repository to
+   initialize named workspaces or deploy resources.
 
 Exact commands and verification gates live in
 [`docs/operator-runbook.md`](docs/operator-runbook.md). No AWS apply is intended
