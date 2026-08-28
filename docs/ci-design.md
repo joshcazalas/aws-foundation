@@ -123,11 +123,11 @@ Each foundation plan job receives only:
   and production. Those roles expose only Terraform-managed control-plane
   configuration, never application data, credentials, secrets, or state.
 
-Plan-role trust must bind the exact immutable pull-request subject plus the
-immutable repository and owner IDs. Once the reusable plan workflow exists, it
-should also bind that workflow's exact `job_workflow_ref`. It cannot require a
-main-only GitHub Environment or `refs/heads/main`, because pull-request jobs use
-a PR merge ref.
+Plan-role trust must bind the exact immutable-ID pull-request subject
+`repo:joshcazalas@73436834/aws-foundation@1346584597:pull_request` plus the
+immutable repository and owner ID claims. It also binds the reusable workflow's
+exact `job_workflow_ref`. It cannot require a main-only GitHub Environment or
+`refs/heads/main`, because pull-request jobs use a PR merge ref.
 
 The comment aggregation job receives no AWS token and no cloud permissions. It
 receives only `actions: read`, `contents: read`, and `pull-requests: write` so

@@ -61,6 +61,11 @@ The second CI pull request calls the identity-only reusable workflow from
 - read access to exactly the four foundation state objects; and
 - tagged role chaining into deployment, UAT, and production.
 
+GitHub's repository OIDC settings expose the immutable subject prefix
+`repo:joshcazalas@73436834/aws-foundation@1346584597`. The management role
+therefore binds that prefix plus `:pull_request`, in addition to separately
+checking the repository and owner ID claims.
+
 That pull request then replaces the reusable workflow body with the live,
 read-only plan implementation and adds the sticky comment aggregator. Its own
 run still uses the identity-only workflow already on `main`; a small follow-up
