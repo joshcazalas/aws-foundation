@@ -95,6 +95,13 @@ sticky production-first comment, and the normal offline checks. A second push
 to the same probe must update the existing bot comment instead of adding a
 second marked comment. Fork pull requests must skip both AWS-backed jobs.
 
+### Live-plan verification record
+
+The phase-two probe is documentation-only so every Terraform root should report
+no infrastructure changes. After its first run passes, this section records the
+run and sticky-comment evidence in a second commit. That second run verifies the
+existing marked bot comment is updated in place.
+
 The organization root also requires the sensitive `account_emails` input. Live
 CI receives it from a repository Actions secret named
 `TF_VAR_account_emails`, encoded as the same JSON object used locally. It is
