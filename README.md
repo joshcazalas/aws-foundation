@@ -33,6 +33,8 @@ baselines, state storage, and bootstrap identities.
 - Human access uses IAM Identity Center and short-lived sessions.
 - GitHub enters AWS once through environment-specific deployment-account roles,
   then assumes an exact least-privilege role in the target workload account.
+- Foundation pull-request plans use a separate read-only management-account
+  OIDC role and dedicated read-only roles in every member account.
 - Application roots use named `uat` and `production` CLI workspaces against one
   shared configuration; the `default` workspace is not deployable.
 - Organization and state resources are protected from accidental destruction.
@@ -54,6 +56,7 @@ terraform/
   platform/             Deployment state, OIDC hub, and workload execution roles
   github/               Deployment environments and non-secret variables
   modules/
+    foundation-account-plan-role/ Reusable member-account foundation plan role
     github-environment-roles/    Reusable OIDC hub-role pair
     workload-execution-baseline/ Reusable workload-account role pair
 ```
@@ -61,8 +64,9 @@ terraform/
 Each runnable foundation root has a separate state boundary. The platform root
 uses aliased AWS providers to assume `OrganizationAccountAccessRole` from an
 authenticated management session while establishing the long-term deployment
-role chain. Application roots live in their application repositories and assume
-those roles without management-account access.
+role chain. Pull-request CI overrides that provider role with the read-only
+`AWSFoundationTerraformPlan` role. Application roots live in their application
+repositories and assume their own roles without management-account access.
 
 The S3 account-public-access and IAM role abstractions use exact releases of
 `terraform-aws-modules`. State buckets use direct AWS resources because the
@@ -100,12 +104,14 @@ configuration.
    workload permissions in `terraform/platform`.
 8. Retest the tightened chains before permitting an application repository to
    initialize named workspaces or deploy resources.
+9. Bootstrap the foundation repository's read-only OIDC plan chain, then enable
+   trusted pull-request plans and the sticky plan comment.
 
 Exact commands and verification gates live in
 [`docs/operator-runbook.md`](docs/operator-runbook.md). No AWS apply is intended
 to run in CI yet.
 
 The production-grade pull-request checks and sticky plan-comment contract are
-recorded in [`docs/ci-design.md`](docs/ci-design.md). They are intentionally not
-implemented until the manually applied foundation is proven and deployment
-semantics have been designed.
+recorded in [`docs/ci-design.md`](docs/ci-design.md). Their two-phase trust
+sequence is documented in [`docs/ci-bootstrap.md`](docs/ci-bootstrap.md).
+Automatic apply semantics remain intentionally deferred.

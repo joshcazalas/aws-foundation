@@ -18,9 +18,11 @@ apply infrastructure, or enable automatic deployment.
 - Every third-party GitHub Action is pinned to its full commit SHA. A release
   tag may appear in an adjacent comment for readability, but must not be the
   executable reference.
-- CI receives no long-lived AWS credentials. AWS-backed jobs use GitHub OIDC to
-  assume an application/environment-specific deployment-account plan role,
-  which may assume only the matching workload-account plan role.
+- CI receives no long-lived AWS credentials. AWS-backed foundation jobs use
+  GitHub OIDC to assume a dedicated read-only management-account plan role.
+  That role can assume only the dedicated read-only foundation plan role in
+  each member account. Application deployment identities are separate and
+  cannot access organization or foundation state.
 - A pull-request plan is an informational post-merge preview. It is never the
   plan artifact later passed to `apply`; an apply must create and review a new,
   locked plan against current state.
@@ -110,12 +112,16 @@ the `pull_request` event and must never use `pull_request_target` to execute
 pull-request-controlled Terraform. Fork pull requests receive only offline
 checks; their plan rows state that AWS-backed planning was skipped.
 
-Each plan job receives only:
+Each foundation plan job receives only:
 
 - `contents: read`;
-- `id-token: write` while obtaining its environment-scoped AWS session; and
-- the deployment-account plan role for exactly one application and environment;
-  that role's exact matching workload role is the only permitted second hop.
+- `id-token: write` while obtaining its management-account AWS session;
+- read access to exactly the four foundation state objects;
+- read-only management-account control-plane permissions required by the
+  bootstrap and organization roots; and
+- permission to assume only `AWSFoundationTerraformPlan` in deployment, UAT,
+  and production. Those roles expose only Terraform-managed control-plane
+  configuration, never application data, credentials, secrets, or state.
 
 Plan-role trust must bind the exact immutable pull-request subject plus the
 immutable repository and owner IDs. Once the reusable plan workflow exists, it
@@ -136,6 +142,28 @@ values and must not be uploaded as artifacts or posted to GitHub. A plan job may
 temporarily create a plan file on its ephemeral runner, render the normal
 redacted CLI view, derive its summary, and delete the file before handing a
 sanitized text result to the comment job.
+
+The organization root receives its sensitive `account_emails` variable from a
+repository Actions secret named `TF_VAR_account_emails`. It is not an AWS
+credential. It is available only to that plan job and must never be printed or
+passed to the commenter.
+
+The GitHub-provider root uses `-refresh=false` in pull-request CI. The built-in
+`GITHUB_TOKEN` does not offer the Environment and Variables API permissions
+needed for a live provider refresh. A state-based preview is preferable to
+introducing a PAT or GitHub App private key into PR CI. Manual authenticated
+plans remain responsible for live GitHub drift until a separate design is
+approved.
+
+## Trust bootstrap
+
+CI is introduced in two pull requests. The first lands the permanent reusable
+workflow path in identity-only mode together with offline checks and the IAM
+configuration. After that pull request is merged, its organization and platform
+plans are manually applied. The second pull request calls the main-branch
+identity-only workflow to prove the exact OIDC and role-chain boundaries before
+replacing its body with live planning and adding the sticky commenter. See
+`docs/ci-bootstrap.md` for the operator sequence.
 
 ## Sticky plan comment
 

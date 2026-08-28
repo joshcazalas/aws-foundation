@@ -1,0 +1,112 @@
+name: Reusable foundation plan
+
+on:
+  workflow_call:
+    inputs:
+      root:
+        description: Runnable Terraform root to plan.
+        required: true
+        type: string
+
+# Identity-only bootstrap. Callers must pin this workflow to @main. Terraform
+# source is not checked out and no plan runs until this exact job_workflow_ref,
+# the foundation-state reads, and all three member-account role hops pass.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  identity-only-bootstrap:
+    name: Foundation plan identity bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate requested root
+        env:
+          REQUESTED_ROOT: ${{ inputs.root }}
+        run: |
+          set -euo pipefail
+          case "$REQUESTED_ROOT" in
+            terraform/bootstrap/management-state|terraform/organization|terraform/platform|terraform/github)
+              ;;
+            *)
+              echo "::error::Unrecognized Terraform root: $REQUESTED_ROOT"
+              exit 1
+              ;;
+          esac
+
+      - name: Assume management foundation plan role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::357964519547:role/AWSFoundationTerraformPlan
+          role-session-name: foundation-plan-bootstrap-${{ github.run_id }}
+          allowed-account-ids: '357964519547'
+          retry-max-attempts: 3
+          action-timeout-s: 60
+          unset-current-credentials: true
+
+      - name: Verify management identity and state reads
+        run: |
+          set -euo pipefail
+
+          actual_account_id="$(aws sts get-caller-identity --query Account --output text)"
+          if [[ "$actual_account_id" != "357964519547" ]]; then
+            echo "::error::Expected management account 357964519547, got $actual_account_id."
+            exit 1
+          fi
+
+          for key in \
+            aws-foundation/management-state/terraform.tfstate \
+            aws-foundation/organization/terraform.tfstate \
+            aws-foundation/platform/terraform.tfstate \
+            aws-foundation/github/terraform.tfstate
+          do
+            aws s3api head-object \
+              --bucket joshcazalas-aws-foundation-tfstate-357964519547 \
+              --key "$key" >/dev/null
+          done
+
+          echo "Validated management identity and exact foundation-state reads."
+
+      - name: Verify member-account role chain
+        if: inputs.root == 'terraform/platform'
+        run: |
+          set -euo pipefail
+
+          verify_member_role() {
+            local account_id="$1"
+            local label="$2"
+            local credentials
+            local actual_account_id
+
+            credentials="$(
+              aws sts assume-role \
+                --role-arn "arn:aws:iam::${account_id}:role/AWSFoundationTerraformPlan" \
+                --role-session-name "foundation-${label}-${GITHUB_RUN_ID}" \
+                --tags Key=Repository,Value=aws-foundation \
+                --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+                --output json
+            )"
+
+            actual_account_id="$(
+              AWS_ACCESS_KEY_ID="$(jq -r '.[0]' <<<"$credentials")" \
+              AWS_SECRET_ACCESS_KEY="$(jq -r '.[1]' <<<"$credentials")" \
+              AWS_SESSION_TOKEN="$(jq -r '.[2]' <<<"$credentials")" \
+                aws sts get-caller-identity --query Account --output text
+            )"
+            unset credentials
+
+            if [[ "$actual_account_id" != "$account_id" ]]; then
+              echo "::error::Expected $label account $account_id, got $actual_account_id."
+              exit 1
+            fi
+            echo "Validated $label foundation plan role (account $actual_account_id)."
+          }
+
+          verify_member_role 245459924498 deployment
+          verify_member_role 732006412638 uat
+          verify_member_role 134604497564 production
+
+      - name: Confirm plans remain disabled
+        run: echo "Identity bootstrap passed; this workflow intentionally does not check out source or run OpenTofu yet."

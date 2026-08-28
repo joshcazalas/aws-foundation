@@ -49,6 +49,20 @@ variable "management_account_id" {
   }
 }
 
+variable "member_account_access_role_name" {
+  description = "Member-account role assumed by platform providers. Local applies use the Organizations bootstrap administrator; CI overrides this with the read-only foundation plan role."
+  type        = string
+  default     = "OrganizationAccountAccessRole"
+
+  validation {
+    condition = contains([
+      "AWSFoundationTerraformPlan",
+      "OrganizationAccountAccessRole",
+    ], var.member_account_access_role_name)
+    error_message = "member_account_access_role_name must be an approved foundation administration or plan role."
+  }
+}
+
 variable "money_on_record_deploy_job_workflow_ref" {
   description = "Exact main-branch reusable GitHub deployment workflow ref enforced in OIDC trust."
   type        = string
