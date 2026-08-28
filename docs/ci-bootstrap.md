@@ -97,10 +97,14 @@ second marked comment. Fork pull requests must skip both AWS-backed jobs.
 
 ### Live-plan verification record
 
-The phase-two probe is documentation-only so every Terraform root should report
-no infrastructure changes. After its first run passes, this section records the
-run and sticky-comment evidence in a second commit. That second run verifies the
-existing marked bot comment is updated in place.
+The first phase-two probe reached live planning in all four roots. Management
+state, GitHub, and Platform reported no changes. Organization exposed a missing
+`budgets:ListTagsForResource` read permission, and all four jobs exposed a
+slug-directory mismatch in sanitized artifact publication. The trusted-script
+bootstrap fix adds that one read action, corrects the artifact layout, and adds
+a runner-level regression test. A fresh documentation-only probe after that fix
+merges must report no changes in every scope and update its marked bot comment
+in place on a second push.
 
 The organization root also requires the sensitive `account_emails` input. Live
 CI receives it from a repository Actions secret named

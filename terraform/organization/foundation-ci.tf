@@ -89,6 +89,7 @@ locals {
     ReadManagementAccountConfiguration = {
       actions = [
         "account:GetAccountInformation",
+        "budgets:ListTagsForResource",
         "budgets:ViewBudget",
         "iam:GetOpenIDConnectProvider",
         "iam:GetPolicy",

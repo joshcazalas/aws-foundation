@@ -2,13 +2,13 @@
 set -euo pipefail
 
 if [[ "$#" -ne 3 ]]; then
-  echo "usage: $0 SOURCE_DIRECTORY TERRAFORM_ROOT RESULT_DIRECTORY" >&2
+  echo "usage: $0 SOURCE_DIRECTORY TERRAFORM_ROOT RESULT_PARENT_DIRECTORY" >&2
   exit 64
 fi
 
 source_directory="$(realpath "$1")"
 terraform_root="$2"
-result_directory="$(realpath -m "$3")"
+result_parent_directory="$(realpath -m "$3")"
 script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 case "$terraform_root" in
@@ -38,6 +38,8 @@ case "$terraform_root" in
     exit 64
     ;;
 esac
+
+result_directory="$result_parent_directory/$result_slug"
 
 root_directory="$(realpath -m "$source_directory/$terraform_root")"
 case "$root_directory" in

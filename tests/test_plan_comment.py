@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -62,6 +63,86 @@ class PlanSummaryTests(unittest.TestCase):
 
         self.assertEqual([item["scope"] for item in result], ["production", "uat", "deployment"])
         self.assertEqual(result[2]["actions"], ["delete", "create"])
+
+    def test_runner_writes_the_slugged_sanitized_artifact_layout(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_path = Path(temporary_directory)
+            source = temporary_path / "source"
+            (source / "terraform" / "github").mkdir(parents=True)
+            fake_bin = temporary_path / "bin"
+            fake_bin.mkdir()
+            fake_tofu = fake_bin / "tofu"
+            fake_tofu.write_text(
+                """#!/usr/bin/env bash
+set -euo pipefail
+
+command_name=""
+for argument in "$@"; do
+  case "$argument" in
+    init|plan|show)
+      command_name="$argument"
+      break
+      ;;
+  esac
+done
+
+case "$command_name" in
+  init)
+    echo "Initialized."
+    ;;
+  plan)
+    for argument in "$@"; do
+      case "$argument" in
+        -out=*)
+          : >"${argument#-out=}"
+          ;;
+      esac
+    done
+    echo "No changes. Your infrastructure matches the configuration."
+    ;;
+  show)
+    if [[ " $* " == *" -json "* ]]; then
+      printf '{"resource_changes":[]}\\n'
+    else
+      echo "No changes. Your infrastructure matches the configuration."
+    fi
+    ;;
+  *)
+    exit 64
+    ;;
+esac
+""",
+                encoding="utf-8",
+            )
+            fake_tofu.chmod(0o755)
+            results = temporary_path / "results"
+            environment = os.environ.copy()
+            environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
+
+            subprocess.run(
+                [
+                    "bash",
+                    str(REPOSITORY_ROOT / "scripts" / "run-foundation-plan.sh"),
+                    str(source),
+                    "terraform/github",
+                    str(results),
+                ],
+                check=True,
+                capture_output=True,
+                env=environment,
+                text=True,
+            )
+
+            metadata_path = results / "github" / "metadata.json"
+            plan_path = results / "github" / "plan.txt"
+            self.assertTrue(metadata_path.is_file())
+            self.assertTrue(plan_path.is_file())
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            self.assertEqual(metadata["status"], "success")
+            self.assertEqual(
+                metadata["scopes"],
+                [{"name": "github", "add": 0, "change": 0, "destroy": 0}],
+            )
 
 
 class CommentRendererTests(unittest.TestCase):
