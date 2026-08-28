@@ -111,6 +111,15 @@ must create the corrected production-first comment from four sanitized plan
 artifacts. A second commit records the immutable run and comment evidence and
 must update that same bot comment rather than creating another.
 
+The first corrected run is
+[`33189211642`](https://github.com/joshcazalas/aws-foundation/actions/runs/33189211642).
+All four roots succeeded with zero changes. Each artifact contained only its
+slugged `metadata.json` and redacted `plan.txt`; no binary plan or raw JSON was
+present. GitHub rendered Production, UAT, Deployment, Management, and GitHub as
+five real level-three headings. The single marked bot comment ID was
+`5454935554`, created at `2026-08-28T16:17:56Z`. This evidence commit triggers
+the required in-place update check.
+
 The organization root also requires the sensitive `account_emails` input. Live
 CI receives it from a repository Actions secret named
 `TF_VAR_account_emails`, encoded as the same JSON object used locally. It is
