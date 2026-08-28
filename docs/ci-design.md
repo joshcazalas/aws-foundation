@@ -39,7 +39,6 @@ required yet:
 - generated-documentation drift checks with `terraform-docs`;
 - dependency lockfile and exact-version policy enforcement beyond read-only
   initialization;
-- `actionlint` and `shellcheck` after workflow and shell code exists;
 - Terraform security and compliance scanning, with Checkov and a focused
   OPA/Conftest policy set as the leading options;
 - GitHub Actions security linting with `zizmor`;
@@ -66,10 +65,10 @@ rows marked **required** are locked for the initial implementation.
 | `validate` | **Required** | For every runnable root, run `tofu init -backend=false -lockfile=readonly` and `tofu validate`. |
 | `tflint` | **Required** | Run TFLint's recommended Terraform rules and the pinned AWS ruleset for every root. |
 | `plan` | **Required** | Produce the trusted-PR, no-lock preview described below for every applicable Terraform root. |
+| `workflow-lint` | **Required** | Run pinned `actionlint`, pinned `shellcheck`, Bash syntax checks, and plan-result parser/renderer tests. |
 | `lockfiles` | Candidate | Reject missing or unexpectedly changed dependency lockfiles and enforce the final version policy. |
 | `tests` | Candidate | Run native, plan-only `tofu test` suites when module invariants are added. Tests that can apply infrastructure are forbidden in PR CI. |
 | `docs` | Candidate | Regenerate module documentation with the pinned `terraform-docs` version and reject a non-empty diff once generated docs are adopted. |
-| `workflow-lint` | Candidate | Run pinned `actionlint` and `shellcheck` over Actions and shell code once workflows exist. |
 | `security-policy` | Candidate | Scan Terraform source and, where useful, sanitized plan JSON with a separately approved and pinned policy engine. Checkov and OPA/Conftest remain under review. |
 
 GitHub's native secret scanning and push protection should be enabled when the
@@ -93,8 +92,9 @@ should be available outside this repository.
 | `just` | Required helper | Yes | Run the repository's documented command recipes. |
 | TFLint | Required CI check | Yes | Terraform linting and AWS-specific rules. |
 | `terraform-docs` | Candidate | Yes | Deterministic generated module documentation. |
-| `actionlint` | Candidate | No | Static validation of GitHub Actions workflows. |
-| `shellcheck` | Candidate | No | Shell-script correctness and portability checks. |
+| `actionlint` | Required CI check | Yes | Static validation of GitHub Actions workflows. |
+| `shellcheck` | Required CI check | Yes | Shell-script correctness and portability checks. |
+| Python 3 | Required helper | Yes | Test and render sanitized plan-result comments. |
 | Checkov | Candidate | No | Broad built-in Terraform security policies. |
 | Conftest | Candidate | No | Small repository-owned OPA policy set. |
 | `zizmor` | Candidate | No | GitHub Actions security analysis. |
@@ -123,15 +123,15 @@ Each foundation plan job receives only:
   and production. Those roles expose only Terraform-managed control-plane
   configuration, never application data, credentials, secrets, or state.
 
-Plan-role trust must bind the exact immutable pull-request subject plus the
-immutable repository and owner IDs. Once the reusable plan workflow exists, it
-should also bind that workflow's exact `job_workflow_ref`. It cannot require a
-main-only GitHub Environment or `refs/heads/main`, because pull-request jobs use
-a PR merge ref.
+Plan-role trust must bind the exact immutable-ID pull-request subject
+`repo:joshcazalas@73436834/aws-foundation@1346584597:pull_request` plus the
+immutable repository and owner ID claims. It also binds the reusable workflow's
+exact `job_workflow_ref`. It cannot require a main-only GitHub Environment or
+`refs/heads/main`, because pull-request jobs use a PR merge ref.
 
 The comment aggregation job receives no AWS token and no cloud permissions. It
-receives only the minimum GitHub permission needed to find and update the pull
-request comment.
+receives only `actions: read`, `contents: read`, and `pull-requests: write` so
+it can download sanitized results and update the pull-request comment.
 
 Plan jobs use `-input=false`, `-lock=false`, and `-no-color`. Superseded runs
 are cancelled. The future apply workflow must share concurrency controls with
@@ -141,7 +141,9 @@ Saved binary plans and raw `tofu show -json` output can contain sensitive
 values and must not be uploaded as artifacts or posted to GitHub. A plan job may
 temporarily create a plan file on its ephemeral runner, render the normal
 redacted CLI view, derive its summary, and delete the file before handing a
-sanitized text result to the comment job.
+sanitized text result to the comment job. Sanitized result artifacts are
+retained for seven days; the complete redacted text also remains in the plan
+job log linked by the comment.
 
 The organization root receives its sensitive `account_emails` variable from a
 repository Actions secret named `TF_VAR_account_emails`. It is not an AWS
@@ -157,13 +159,14 @@ approved.
 
 ## Trust bootstrap
 
-CI is introduced in two pull requests. The first lands the permanent reusable
+CI is introduced in two pull requests. The first landed the permanent reusable
 workflow path in identity-only mode together with offline checks and the IAM
-configuration. After that pull request is merged, its organization and platform
-plans are manually applied. The second pull request calls the main-branch
-identity-only workflow to prove the exact OIDC and role-chain boundaries before
-replacing its body with live planning and adding the sticky commenter. See
-`docs/ci-bootstrap.md` for the operator sequence.
+configuration. After that pull request was merged, its organization and
+platform plans were manually applied. The second pull request calls the
+main-branch identity-only workflow to prove the exact OIDC and role-chain
+boundaries before replacing its body with live planning and adding the sticky
+commenter. A small follow-up pull request then probes the merged live workflow.
+See `docs/ci-bootstrap.md` for the operator sequence.
 
 ## Sticky plan comment
 
@@ -195,9 +198,9 @@ It then renders a compact environment summary:
 | Management | No changes. Your infrastructure matches the configuration. |
 ```
 
-Production is always first. UAT follows, then management or any other
-deterministically ordered environments. A failed or skipped plan is shown
-explicitly and never represented as "no changes."
+The exact order is Production, UAT, Deployment, Management, then GitHub. A
+failed or missing plan is shown explicitly and never represented as "no
+changes."
 
 Below the table, render one section per environment in the same order. Within
 each environment, every Terraform root has a collapsed details block whose

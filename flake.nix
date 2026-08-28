@@ -23,11 +23,14 @@
         {
           default = pkgs.mkShellNoCC {
             packages = with pkgs; [
+              actionlint
               awscli2
               gh
               jq
               just
               opentofu
+              python3
+              shellcheck
               tflint
               terraform-docs
             ];

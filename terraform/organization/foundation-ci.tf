@@ -1,9 +1,9 @@
 locals {
   foundation_ci_repository = {
-    id       = "1346584597"
-    name     = "joshcazalas/aws-foundation"
-    owner_id = "73436834"
-    subject  = "repo:joshcazalas/aws-foundation:pull_request"
+    id           = "1346584597"
+    name         = "joshcazalas/aws-foundation"
+    owner_id     = "73436834"
+    subject_base = "repo:joshcazalas@73436834/aws-foundation@1346584597"
   }
 
   foundation_state_bucket_arn = "arn:aws:s3:::joshcazalas-aws-foundation-tfstate-${var.management_account_id}"
@@ -161,7 +161,7 @@ module "foundation_plan_role" {
   enable_oidc             = true
   oidc_provider_urls      = ["token.actions.githubusercontent.com"]
   oidc_audiences          = ["sts.amazonaws.com"]
-  oidc_subjects           = [local.foundation_ci_repository.subject]
+  oidc_subjects           = ["${local.foundation_ci_repository.subject_base}:pull_request"]
   trust_policy_conditions = local.foundation_plan_trust_conditions
 
   create_inline_policy      = true
