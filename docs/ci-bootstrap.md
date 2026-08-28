@@ -66,6 +66,30 @@ read-only plan implementation and adds the sticky comment aggregator. Its own
 run still uses the identity-only workflow already on `main`; a small follow-up
 probe pull request exercises the newly merged live planner end to end.
 
+Before opening that probe, set the repository Actions secret without printing
+its value or creating a temporary plaintext file. From the repository root,
+with the ignored `personal.auto.tfvars` still containing the reviewed map, run:
+
+```bash
+printf 'jsonencode(var.account_emails)\n' |
+  AWS_PROFILE=management tofu -chdir=terraform/organization console \
+    -var-file=personal.auto.tfvars |
+  jq -r . |
+  gh secret set TF_VAR_account_emails \
+    --repo joshcazalas/aws-foundation
+```
+
+Confirm only the secret name and update time; GitHub never returns its value:
+
+```bash
+gh secret list --repo joshcazalas/aws-foundation
+```
+
+The probe pull request must receive four successful trusted plan jobs, one
+sticky production-first comment, and the normal offline checks. A second push
+to the same probe must update the existing bot comment instead of adding a
+second marked comment. Fork pull requests must skip both AWS-backed jobs.
+
 The organization root also requires the sensitive `account_emails` input. Live
 CI receives it from a repository Actions secret named
 `TF_VAR_account_emails`, encoded as the same JSON object used locally. It is
@@ -78,6 +102,11 @@ permissions required to refresh that root. This state-based preview avoids a
 PAT or GitHub App private-key secret. Manual plans remain the authoritative way
 to check live GitHub drift until a separately reviewed GitHub App design is
 adopted.
+
+The plan jobs use `-lock=false` and `-detailed-exitcode`; their saved plans are
+never reused for apply. Binary plans and raw JSON exist only in an ephemeral
+temporary directory. Only redacted CLI text and tested action counts are
+uploaded for the no-AWS-permission comment job.
 
 ## Deployment remains deferred
 

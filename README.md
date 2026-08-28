@@ -115,3 +115,10 @@ The production-grade pull-request checks and sticky plan-comment contract are
 recorded in [`docs/ci-design.md`](docs/ci-design.md). Their two-phase trust
 sequence is documented in [`docs/ci-bootstrap.md`](docs/ci-bootstrap.md).
 Automatic apply semantics remain intentionally deferred.
+
+Pull-request CI runs formatting, hygiene, per-root validation and TFLint,
+workflow/script linting, tested plan-result rendering, and—only for branches in
+this repository—four no-lock read-only plans through the trusted reusable
+workflow on `main`. Fork pull requests receive offline checks only. The sticky
+plan comment is ordered Production, UAT, Deployment, Management, then GitHub;
+it never serves as an apply artifact.
