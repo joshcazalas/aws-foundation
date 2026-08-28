@@ -106,6 +106,11 @@ a runner-level regression test. A fresh documentation-only probe after that fix
 merges must report no changes in every scope and update its marked bot comment
 in place on a second push.
 
+The post-fix verification uses this documentation-only change. Its first run
+must create the corrected production-first comment from four sanitized plan
+artifacts. A second commit records the immutable run and comment evidence and
+must update that same bot comment rather than creating another.
+
 The organization root also requires the sensitive `account_emails` input. Live
 CI receives it from a repository Actions secret named
 `TF_VAR_account_emails`, encoded as the same JSON object used locally. It is
