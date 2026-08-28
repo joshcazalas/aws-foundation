@@ -216,10 +216,16 @@ class CommentRendererTests(unittest.TestCase):
         self.assertLess(comment.index("### Production"), comment.index("### UAT"))
         self.assertLess(comment.index("### UAT"), comment.index("### Deployment"))
         self.assertLess(comment.index("### Deployment"), comment.index("### Management"))
+        self.assertIn("| GitHub | No changes. Your infrastructure matches the configuration. |\n\n### Production", comment)
+        self.assertIn("</details>\n\n### UAT", comment)
+        self.assertIn("</details>\n\n### Deployment", comment)
+        self.assertIn("</details>\n\n### Management", comment)
+        self.assertIn("</details>\n\n### GitHub", comment)
         self.assertIn("| Production | 1 to add, 0 to change, 0 to destroy. |", comment)
         self.assertIn("+ + aws_iam_role.new", comment)
         self.assertIn("! ! aws_iam_role.changed", comment)
         self.assertIn("- - aws_iam_role.old", comment)
+        self.assertNotIn("This root spans three AWS accounts", comment)
         self.assertIn("[View CI run](https://github.com/owner/repository/actions/runs/1234)", comment)
 
     def test_missing_artifact_is_reported_as_failure(self) -> None:

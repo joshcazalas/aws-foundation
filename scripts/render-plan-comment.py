@@ -180,16 +180,9 @@ def detail_parts(root: RootResult, scope: str) -> tuple[str, str, str]:
     status_summary = summary(counts.add, counts.change, counts.destroy, root.status)
     opening = f"<details>\n<summary><code>{root.root}</code> — {status_summary}</summary>\n\n"
 
-    note = ""
-    if root.root == "terraform/platform":
-        note = (
-            f"_This root spans three AWS accounts. Counts above are scoped to "
-            f"{dict(SCOPES)[scope]}; the expanded text is the complete platform plan._\n\n"
-        )
-
     plan = diff_plan(root.plan)
     fence = fence_for(plan)
-    body = f"{note}{fence}diff\n{plan}\n{fence}\n"
+    body = f"{fence}diff\n{plan}\n{fence}\n"
     closing = "\n</details>"
     return opening, body, closing
 
@@ -256,7 +249,7 @@ def render_comment(results_directory: Path, repository: str, run_id: str) -> str
             rendered_details.append(opening + selected_body + closing)
         rendered_sections.append(section_header + "\n\n".join(rendered_details))
 
-    comment = header + "\n".join(rendered_sections) + footer
+    comment = header + "\n" + "\n\n".join(rendered_sections) + footer
     if len(comment) > MAX_COMMENT_LENGTH:
         raise AssertionError("rendered comment exceeds the configured limit")
     return comment
