@@ -25,3 +25,12 @@ output "money_on_record_roles" {
     }
   }
 }
+
+output "foundation_member_plan_role_arns" {
+  description = "Read-only foundation plan role ARNs in each member account."
+  value = {
+    deployment = module.foundation_plan_deployment.role_arn
+    production = module.foundation_plan_production.role_arn
+    uat        = module.foundation_plan_uat.role_arn
+  }
+}

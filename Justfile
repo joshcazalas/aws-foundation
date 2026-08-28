@@ -9,6 +9,9 @@ fmt:
 fmt-fix:
     tofu fmt -recursive {{terraform_root}}
 
+hygiene:
+    bash scripts/check-repository-hygiene.sh
+
 lint:
     tflint --recursive --chdir={{terraform_root}} --config={{repo_root}}/.tflint.hcl --format=compact
 
@@ -28,4 +31,4 @@ validate-platform:
     tofu -chdir={{terraform_root}}/platform init -backend=false -input=false -lockfile=readonly
     tofu -chdir={{terraform_root}}/platform validate
 
-validate: fmt lint validate-bootstrap validate-organization validate-platform validate-github
+validate: fmt hygiene lint validate-bootstrap validate-organization validate-platform validate-github

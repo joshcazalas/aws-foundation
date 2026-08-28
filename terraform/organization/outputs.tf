@@ -32,3 +32,8 @@ output "account_ids" {
   description = "Foundation account IDs keyed by deployment, workloads-uat, and workloads-prod."
   value       = { for key, account in aws_organizations_account.foundation : key => account.id }
 }
+
+output "foundation_plan_role_arn" {
+  description = "Management-account GitHub OIDC role used for read-only foundation pull-request plans."
+  value       = module.foundation_plan_role.arn
+}

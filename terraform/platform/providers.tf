@@ -5,7 +5,7 @@ provider "aws" {
   allowed_account_ids = [local.account_ids["deployment"]]
 
   assume_role {
-    role_arn     = "arn:aws:iam::${local.account_ids["deployment"]}:role/OrganizationAccountAccessRole"
+    role_arn     = "arn:aws:iam::${local.account_ids["deployment"]}:role/${var.member_account_access_role_name}"
     session_name = "aws-foundation-platform"
   }
 
@@ -24,7 +24,7 @@ provider "aws" {
   allowed_account_ids = [local.account_ids["workloads-uat"]]
 
   assume_role {
-    role_arn     = "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/OrganizationAccountAccessRole"
+    role_arn     = "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/${var.member_account_access_role_name}"
     session_name = "aws-foundation-platform"
   }
 
@@ -44,7 +44,7 @@ provider "aws" {
   allowed_account_ids = [local.account_ids["workloads-prod"]]
 
   assume_role {
-    role_arn     = "arn:aws:iam::${local.account_ids["workloads-prod"]}:role/OrganizationAccountAccessRole"
+    role_arn     = "arn:aws:iam::${local.account_ids["workloads-prod"]}:role/${var.member_account_access_role_name}"
     session_name = "aws-foundation-platform"
   }
 
