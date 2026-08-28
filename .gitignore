@@ -1,0 +1,28 @@
+# Terraform / OpenTofu working data
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.plan
+crash.log
+crash.*.log
+
+# Local and sensitive inputs
+*.auto.tfvars
+*.auto.tfvars.json
+terraform.tfvars
+terraform.tfvars.json
+*.local.tfvars
+*.local.hcl
+
+# Override files are local-only by convention
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Local tool output
+.direnv/
+.tflint.d/
+.envrc.local
+.DS_Store
