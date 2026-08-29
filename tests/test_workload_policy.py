@@ -11,7 +11,29 @@ class WorkloadPolicyContractTests(unittest.TestCase):
         source = POLICY_PATH.read_text(encoding="utf-8")
 
         self.assertRegex(source, r"account_id\s*=\s*configuration\.account_id")
-        self.assertIn('"s3:GetBucketAcl"', source)
+        expected_bucket_reads = {
+            "s3:GetAccelerateConfiguration",
+            "s3:GetBucketAcl",
+            "s3:GetBucketCORS",
+            "s3:GetBucketLocation",
+            "s3:GetBucketLogging",
+            "s3:GetBucketObjectLockConfiguration",
+            "s3:GetBucketOwnershipControls",
+            "s3:GetBucketPolicy",
+            "s3:GetBucketPolicyStatus",
+            "s3:GetBucketPublicAccessBlock",
+            "s3:GetBucketRequestPayment",
+            "s3:GetBucketTagging",
+            "s3:GetBucketVersioning",
+            "s3:GetBucketWebsite",
+            "s3:GetEncryptionConfiguration",
+            "s3:GetLifecycleConfiguration",
+            "s3:GetReplicationConfiguration",
+            "s3:ListBucket",
+            "s3:ListTagsForResource",
+        }
+        for action in expected_bucket_reads:
+            self.assertIn(f'"{action}"', source)
         self.assertIn(
             '"arn:aws:cloudfront::${resources.account_id}:cache-policy/'
             '658327ea-f89d-4fab-a63d-7e88639e58f6"',

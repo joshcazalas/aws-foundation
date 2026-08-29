@@ -226,6 +226,7 @@ class CommentRendererTests(unittest.TestCase):
         self.assertIn("! ! aws_iam_role.changed", comment)
         self.assertIn("- - aws_iam_role.old", comment)
         self.assertNotIn("This root spans three AWS accounts", comment)
+        self.assertNotIn("Manual GitHub apply required", comment)
         self.assertIn("[View CI run](https://github.com/owner/repository/actions/runs/1234)", comment)
 
     def test_missing_artifact_is_reported_as_failure(self) -> None:
@@ -239,6 +240,27 @@ class CommentRendererTests(unittest.TestCase):
 
         self.assertIn("| GitHub | Plan failed. Review the CI run. |", comment)
         self.assertIn("The plan result artifact is missing.", comment)
+
+    def test_github_changes_include_manual_post_merge_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            results = Path(temporary_directory)
+            self.complete_results(results)
+            metadata_path = results / "github" / "metadata.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            metadata["exit_code"] = 2
+            metadata["overall"] = {"add": 0, "change": 1, "destroy": 0}
+            metadata["scopes"] = [
+                {"name": "github", "add": 0, "change": 1, "destroy": 0}
+            ]
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+            comment = RENDERER.render_comment(results, "owner/repository", "1234")
+
+        self.assertIn("### Manual GitHub apply required after merge", comment)
+        self.assertIn('export GITHUB_TOKEN="$(gh auth token)"', comment)
+        self.assertIn("tofu -chdir=terraform/github plan", comment)
+        self.assertIn("tofu -chdir=terraform/github apply github.tfplan", comment)
+        self.assertLess(comment.index("### GitHub"), comment.index("Manual GitHub apply"))
 
     def test_large_plan_is_deterministically_truncated(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

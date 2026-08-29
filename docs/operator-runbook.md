@@ -311,9 +311,14 @@ AWS_PROFILE=management tofu -chdir=terraform/github init \
 
 AWS_PROFILE=management tofu -chdir=terraform/github plan \
   -out=github.tfplan
+AWS_PROFILE=management tofu -chdir=terraform/github show github.tfplan
+
+# After reviewing and approving that exact saved plan:
+AWS_PROFILE=management tofu -chdir=terraform/github apply github.tfplan
 ```
 
-Unset the shell variable after the GitHub apply and verification:
+Do not commit `github.tfplan`; it is a local review artifact. Unset the shell
+variable after the GitHub apply and verification:
 
 ```bash
 unset GITHUB_TOKEN

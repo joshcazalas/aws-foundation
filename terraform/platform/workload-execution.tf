@@ -12,14 +12,23 @@ locals {
     for environment, resources in local.money_on_record_static_site_resources : environment => {
       ReadStaticSiteBucketConfiguration = {
         actions = [
+          "s3:GetAccelerateConfiguration",
           "s3:GetBucketAcl",
+          "s3:GetBucketCORS",
           "s3:GetBucketLocation",
+          "s3:GetBucketLogging",
+          "s3:GetBucketObjectLockConfiguration",
           "s3:GetBucketOwnershipControls",
           "s3:GetBucketPolicy",
+          "s3:GetBucketPolicyStatus",
           "s3:GetBucketPublicAccessBlock",
+          "s3:GetBucketRequestPayment",
           "s3:GetBucketTagging",
           "s3:GetBucketVersioning",
+          "s3:GetBucketWebsite",
           "s3:GetEncryptionConfiguration",
+          "s3:GetLifecycleConfiguration",
+          "s3:GetReplicationConfiguration",
           "s3:ListBucket",
           "s3:ListTagsForResource",
         ]

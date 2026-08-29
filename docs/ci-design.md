@@ -227,6 +227,13 @@ summary and root result, truncates detail deterministically, labels the
 truncation, and links to the retained CI log. Failure to fit the entire plan
 must never prevent the summary comment from being updated.
 
+When the GitHub root has changes, append a manual post-merge reminder before
+the run link. It shows the short-lived `gh auth token` export, backend
+initialization, fresh saved plan, plan review, exact saved-plan apply, and token
+cleanup commands from the operator runbook. The GitHub root remains manual;
+the reminder never carries a token and never treats the PR preview as the plan
+to apply.
+
 ## Plan result handling
 
 Use `tofu plan -detailed-exitcode` and distinguish all three outcomes:
