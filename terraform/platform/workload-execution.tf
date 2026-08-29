@@ -1,6 +1,7 @@
 locals {
   money_on_record_static_site_resources = {
     for environment, configuration in local.money_on_record_environments : environment => {
+      account_id                = configuration.account_id
       bucket_arn                = "arn:aws:s3:::money-on-record-${environment}-${configuration.account_id}-site"
       distribution_arn          = "arn:aws:cloudfront::${configuration.account_id}:distribution/*"
       origin_access_control_arn = "arn:aws:cloudfront::${configuration.account_id}:origin-access-control/*"
@@ -11,6 +12,7 @@ locals {
     for environment, resources in local.money_on_record_static_site_resources : environment => {
       ReadStaticSiteBucketConfiguration = {
         actions = [
+          "s3:GetBucketAcl",
           "s3:GetBucketLocation",
           "s3:GetBucketOwnershipControls",
           "s3:GetBucketPolicy",
@@ -36,14 +38,14 @@ locals {
           "cloudfront:GetCachePolicy",
           "cloudfront:GetCachePolicyConfig",
         ]
-        resources = ["arn:aws:cloudfront::aws:cache-policy/658327ea-f89d-4fab-a63d-7e88639e58f6"]
+        resources = ["arn:aws:cloudfront::${resources.account_id}:cache-policy/658327ea-f89d-4fab-a63d-7e88639e58f6"]
       }
       ReadManagedCloudFrontResponseHeadersPolicy = {
         actions = [
           "cloudfront:GetResponseHeadersPolicy",
           "cloudfront:GetResponseHeadersPolicyConfig",
         ]
-        resources = ["arn:aws:cloudfront::aws:response-headers-policy/67f7725c-6f97-4210-82d7-5512b31e9d03"]
+        resources = ["arn:aws:cloudfront::${resources.account_id}:response-headers-policy/67f7725c-6f97-4210-82d7-5512b31e9d03"]
       }
       ReadStaticSiteDistribution = {
         actions = [
