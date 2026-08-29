@@ -12,22 +12,37 @@ on:
         description: JSON account-email map required only by the organization root.
         required: false
 
-# Callers must pin this workflow to @main. The main checkout supplies trusted
-# orchestration code while the pull-request checkout supplies only the
-# Terraform configuration being planned.
-permissions:
-  contents: read
-  id-token: write
+# The reusable workflow independently authorizes a same-repository Josh-owned
+# pull request before any job receives an OIDC token. Callers are pinned to an
+# immutable commit during the phase-two activation.
+permissions: {}
 
 jobs:
-  plan:
-    name: Plan ${{ inputs.root }}
+  authorize:
+    name: Authorize foundation plan
+    permissions: {}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 2
     steps:
-      - name: Validate requested root
-        id: validate-root
+      - name: Enforce trusted pull-request contract
         env:
+          CALLER_ACTION: ${{ github.event.action }}
+          CALLER_ACTOR_ID: ${{ github.actor_id }}
+          CALLER_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          CALLER_BASE_REPOSITORY_ID: ${{ github.event.pull_request.base.repo.id }}
+          CALLER_EVENT: ${{ github.event_name }}
+          CALLER_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          CALLER_HEAD_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}
+          CALLER_OWNER_ID: ${{ github.repository_owner_id }}
+          CALLER_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          CALLER_REPOSITORY: ${{ github.repository }}
+          CALLER_REPOSITORY_ID: ${{ github.repository_id }}
+          CALLER_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          CALLER_WORKFLOW_REF: ${{ github.workflow_ref }}
+          EXPECTED_ACTOR_ID: '73436834'
+          EXPECTED_OWNER_ID: '73436834'
+          EXPECTED_REPOSITORY: joshcazalas/aws-foundation
+          EXPECTED_REPOSITORY_ID: '1346584597'
           REQUESTED_ROOT: ${{ inputs.root }}
         run: |
           set -euo pipefail
@@ -39,10 +54,59 @@ jobs:
               exit 1
               ;;
           esac
+          [[ "$CALLER_EVENT" == "pull_request" ]] || {
+            echo "::error::Authenticated foundation plans require a pull-request event."
+            exit 1
+          }
+          case "$CALLER_ACTION" in
+            opened|reopened|synchronize)
+              ;;
+            *)
+              echo "::error::This pull-request activity cannot authorize a plan."
+              exit 1
+              ;;
+          esac
+          [[ "$CALLER_PULL_REQUEST_NUMBER" =~ ^[1-9][0-9]*$ ]] || {
+            echo "::error::Pull-request number is invalid."
+            exit 1
+          }
+          expected_workflow_ref="$EXPECTED_REPOSITORY/.github/workflows/pr.yml@refs/pull/$CALLER_PULL_REQUEST_NUMBER/merge"
+          [[ "$CALLER_WORKFLOW_REF" == "$expected_workflow_ref" ]] || {
+            echo "::error::Unexpected foundation plan caller workflow."
+            exit 1
+          }
+          [[ "$CALLER_ACTOR_ID" == "$EXPECTED_ACTOR_ID" && "$CALLER_TRIGGERING_ACTOR" == "joshcazalas" ]] || {
+            echo "::error::Only Josh-triggered pull requests receive AWS-backed plans."
+            exit 1
+          }
+          [[ "$CALLER_REPOSITORY" == "$EXPECTED_REPOSITORY" ]] || {
+            echo "::error::Unexpected foundation repository."
+            exit 1
+          }
+          [[ "$CALLER_REPOSITORY_ID" == "$EXPECTED_REPOSITORY_ID" && "$CALLER_OWNER_ID" == "$EXPECTED_OWNER_ID" ]] || {
+            echo "::error::Immutable repository identity mismatch."
+            exit 1
+          }
+          [[ "$CALLER_BASE_REF" == "main" && "$CALLER_BASE_REPOSITORY_ID" == "$EXPECTED_REPOSITORY_ID" ]] || {
+            echo "::error::Foundation plans require this repository's main branch as the base."
+            exit 1
+          }
+          [[ "$CALLER_HEAD_REPOSITORY" == "$EXPECTED_REPOSITORY" && "$CALLER_HEAD_REPOSITORY_ID" == "$EXPECTED_REPOSITORY_ID" ]] || {
+            echo "::error::Fork pull requests receive static validation only."
+            exit 1
+          }
 
+  plan:
+    name: Plan ${{ inputs.root }}
+    needs: authorize
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
       - name: Check out pull-request source
         id: source
-        if: steps.validate-root.outcome == 'success'
         continue-on-error: true
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -55,13 +119,25 @@ jobs:
         continue-on-error: true
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: main
           path: trusted
           persist-credentials: false
+          ref: ${{ job.workflow_sha }}
+          repository: ${{ job.workflow_repository }}
+
+      - name: Verify source and automation revisions
+        id: revisions
+        if: steps.trusted.outcome == 'success'
+        continue-on-error: true
+        env:
+          TRUSTED_WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git -C source rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          [[ "$(git -C trusted rev-parse HEAD)" == "$TRUSTED_WORKFLOW_SHA" ]]
 
       - name: Set up OpenTofu
         id: tofu
-        if: steps.trusted.outcome == 'success'
+        if: steps.revisions.outcome == 'success'
         continue-on-error: true
         uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
         with:
@@ -110,6 +186,7 @@ jobs:
       - name: Enforce plan result
         if: always()
         env:
+          REVISIONS_OUTCOME: ${{ steps.revisions.outcome }}
           SOURCE_OUTCOME: ${{ steps.source.outcome }}
           TRUSTED_OUTCOME: ${{ steps.trusted.outcome }}
           TOFU_OUTCOME: ${{ steps.tofu.outcome }}
@@ -121,6 +198,7 @@ jobs:
           for outcome in \
             "$SOURCE_OUTCOME" \
             "$TRUSTED_OUTCOME" \
+            "$REVISIONS_OUTCOME" \
             "$TOFU_OUTCOME" \
             "$AWS_OUTCOME" \
             "$PLAN_OUTCOME" \

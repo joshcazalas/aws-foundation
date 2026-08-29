@@ -113,6 +113,12 @@ the `pull_request` event and must never use `pull_request_target` to execute
 pull-request-controlled Terraform. Fork pull requests receive only offline
 checks; their plan rows state that AWS-backed planning was skipped.
 
+The pinned reusable planner independently enforces this boundary before its
+OIDC-enabled job starts. It requires Josh's immutable actor ID, Josh as the
+rerun initiator, this repository's immutable head/base IDs, `main` as the base,
+the exact PR merge ref caller, and an allowlisted root. A fork cannot bypass
+that check by editing the caller workflow.
+
 Each foundation plan job receives only:
 
 - `contents: read`;
@@ -252,11 +258,13 @@ required check remains failed.
 
 Josh merging a same-repository pull request into `main` after reviewing its
 successful sticky plan is the approval event for the exact plan digest and
-resource/action manifest attached to that pull-request revision. No other
-actor, fork, ref, event, workflow path, repository ID, or owner ID may obtain
-an apply session. Automatic apply is fail-closed: a missing/stale plan, changed
-state, changed values, a different action, an unavailable lock, or a failed
-post-apply plan stops the run without trying to reinterpret the approval.
+resource/action manifest attached to that pull-request revision. A `push` to
+`main` supplies the immutable main-ref OIDC subject; a no-OIDC gate then proves
+that the pushed SHA came from exactly one fresh eligible merge. No PR subject
+can assume an apply role. Automatic apply is fail-closed: a direct push,
+unauthorized rerun, missing or stale plan, changed state, changed values, a
+different action, an unavailable lock, or a failed post-apply plan stops the
+run without trying to reinterpret the approval.
 
 The pull-request binary plan is never downloaded or reused. Trusted PR planning
 stores only normal redacted text, a sanitized address/action manifest, and a
@@ -274,45 +282,57 @@ the organization email input never leave the privileged job.
 | `terraform/github` | No CI apply identity. | Never applied automatically. A changed PR comment prints the manual commands. | Authenticate through the existing short-lived `gh` CLI session, make a fresh saved plan, review it, and apply it locally. |
 
 All automatic roots are deliberately ordered management-state, organization,
-then platform. A failure prevents later roots from starting. Root-specific
-concurrency groups never cancel an in-progress mutation and prevent two merged
-PRs from mutating the same state simultaneously. Pull-request plans remain
+then platform inside one immutable reusable workflow. A failure prevents later
+roots from starting. Non-cancelling sequence concurrency prevents two merged
+PRs from mutating foundation state simultaneously. Pull-request plans remain
 lock-free and informational, so they do not contend with an apply lock.
 
-No GitHub Environment or GitHub App is required for AWS authentication. A
-merged `pull_request: closed` event has `refs/heads/main` in its `ref` claim but
-retains `pull_request` as its OIDC subject context. Apply trust therefore binds
-the immutable pull-request subject, the separate `refs/heads/main` claim,
-Josh's actor ID, immutable repository/owner IDs, the exact caller workflow
-name, and the permanent main-branch reusable `job_workflow_ref`. Before AWS
-authentication, the reusable workflow also rejects any caller whose exact
-`github.workflow_ref` is not the permanent main-branch
-`foundation-apply.yml`. The built-in
-`GITHUB_TOKEN` is used only by an unprivileged gate to read the bot plan comment
-and workflow metadata/artifacts.
+No GitHub Environment or GitHub App is required for AWS authentication. Apply
+trust binds the immutable main-ref subject, the separate `refs/heads/main`
+claim, Josh's actor ID, immutable repository/owner IDs, the exact caller
+workflow name, and the reusable apply workflow at a full commit SHA. The
+minimal caller passes no PR number, plan run, digest, manifest, or root. The
+pinned workflow derives those values from GitHub's API and checks out its own
+authorization/apply scripts using `job.workflow_repository` and
+`job.workflow_sha`. It checks out merged configuration separately at the
+pushed SHA.
 
-That gate accepts exactly one marked comment from GitHub Actions' immutable bot
-ID. Its run link must identify the exact pull-request workflow ID and head SHA,
-must have completed successfully before merge, and must reference a trusted
-main-branch reusable planner commit that is an ancestor of the merged revision.
-Exactly four unexpired sanitized artifacts must be present. Their schemas,
-digests, action sequences, scopes, ordering, and count totals are validated
-before any value crosses into a privileged reusable apply job.
+The built-in `GITHUB_TOKEN` is used only by the unprivileged gate to read merge,
+plan-comment, workflow, and artifact metadata. Only ordered apply jobs receive
+OIDC permission. A changed caller cannot obtain AWS credentials directly
+because its job lacks the trusted `job_workflow_ref`, and it cannot make the
+pinned workflow accept caller-supplied authorization data because there are no
+such inputs.
+
+That gate first verifies the current push run's original and triggering actor,
+caller path, main SHA, repository IDs, and exact pinned reusable-workflow SHA.
+It resolves the SHA's associated PR and requires exactly one closed merge to
+`main`, made by Josh within the push run's freshness window, from a branch in
+this repository. It then accepts exactly one marked comment from GitHub
+Actions' immutable bot ID. Its run link must identify the exact pull-request
+workflow ID, PR association, head SHA, original/rerun actor, and the planner at
+the same pinned commit SHA. Exactly four unexpired sanitized artifacts must be
+present. Their schemas, digests, action sequences, scopes, ordering, and count
+totals are validated before any value crosses into a privileged apply job.
 
 ### Apply bootstrap sequence
 
-1. Merge the bootstrap PR containing this design, the permanent inert
-   `reusable-foundation-apply.yml` path, sanitized plan digests/manifests, and
-   the distinct management/member apply roles.
-2. Manually create and review fresh organization and platform saved plans, then
-   apply those exact plans with Josh's explicit authorization. This is the only
-   bootstrap use of the existing human administration chain.
-3. Validate generated policies with IAM Access Analyzer and prove the positive
-   main-workflow chains plus negative PR, fork, wrong-ref, wrong-workflow,
-   cross-root state, application-state, and cross-environment cases.
-4. Merge a separate activation PR that adds the `pull_request: closed` caller.
-   Its first successful execution must be a no-change proof before a later,
-   harmless reviewed mutation is allowed to exercise apply.
+1. Merge the control-plane PR containing the immutable reusable workflows and
+   independent authorizer. Existing callers and AWS trust do not reference it.
+2. Pin the planner and new apply workflow to that merge's full SHA in a separate
+   activation PR. Keep the apply subject main-only and update the AWS
+   `job_workflow_ref` conditions to the pinned apply path and SHA.
+3. Manually create, inspect, and apply the activation PR's exact organization
+   saved plan. Re-run its trusted plan after the trust update.
+4. Merge the activation PR. The main push must pass the merge/plan evidence gate
+   and converge without changes before a later harmless reviewed mutation is
+   used to prove a real apply.
+
+A following security-bootstrap change moves the foundation OIDC providers,
+foundation plan/apply roles, their permission boundaries, and member foundation
+plan/apply roles out of automatically applied roots. Automatic roles must not
+be able to rewrite their own trust or permissions or modify/remove their
+boundary. Changes to that small root are planned in CI but applied manually.
 
 Manual recovery never reuses a PR plan. The operator creates a new locked saved
 plan locally, reviews it, obtains explicit authorization for that exact plan,

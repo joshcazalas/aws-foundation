@@ -1,0 +1,14 @@
+# GitHub exposes these reusable-workflow job fields, but actionlint 1.7.12 does
+# not yet include them in its expression schema:
+# https://github.com/rhysd/actionlint/issues/705
+# Keep the exception limited to the two workflows that use the fields and to
+# the exact missing-property diagnostics.
+paths:
+  .github/workflows/reusable-foundation-main-apply.yml:
+    ignore:
+      - 'property "workflow_repository" is not defined in object type'
+      - 'property "workflow_sha" is not defined in object type'
+  .github/workflows/reusable-foundation-plan.yml:
+    ignore:
+      - 'property "workflow_repository" is not defined in object type'
+      - 'property "workflow_sha" is not defined in object type'

@@ -105,19 +105,24 @@ configuration.
 8. Retest the tightened chains before permitting an application repository to
    initialize named workspaces or deploy resources.
 9. Bootstrap the foundation repository's read-only OIDC plan chain, then enable
-   trusted pull-request plans and the sticky plan comment.
+   trusted same-repository pull-request plans and the sticky plan comment.
+10. Land the immutable apply workflow, pin it by full commit SHA in both the
+    caller and AWS trust, and activate the verified `push`-to-`main` apply gate.
+11. Move foundation CI identities into the manual security-bootstrap root so
+    automatic apply roles cannot rewrite their own trust or permissions.
 
 Exact commands and verification gates live in
-[`docs/operator-runbook.md`](docs/operator-runbook.md). Automatic AWS applies
-remain disabled until the staged apply identities are proven and the separate
-post-merge activation workflow reaches `main`.
+[`docs/operator-runbook.md`](docs/operator-runbook.md). Pull-request subjects
+are always planning-only; automatic AWS applies remain disabled until the
+pinned reusable workflow and main-ref trust activation reach `main`.
 
 The production-grade pull-request checks and sticky plan-comment contract are
 recorded in [`docs/ci-design.md`](docs/ci-design.md). Their two-phase trust
 sequence is documented in [`docs/ci-bootstrap.md`](docs/ci-bootstrap.md).
-Reviewed AWS-root applies use a staged main-only OIDC bootstrap and an exact
-post-merge plan-digest gate. The GitHub-provider root remains manual because it
-requires the operator's short-lived GitHub CLI session. See
+Reviewed AWS-root applies use a staged main-only OIDC bootstrap, immutable
+reusable workflow, verified merge provenance, and exact post-merge plan-digest
+gate. The GitHub-provider root remains manual because it requires the
+operator's short-lived GitHub CLI session. See
 [`docs/ci-design.md`](docs/ci-design.md) for the root-by-root policy and
 bootstrap sequence.
 

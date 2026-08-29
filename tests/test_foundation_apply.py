@@ -12,7 +12,7 @@ APPLY_SCRIPT = REPOSITORY_ROOT / "scripts" / "run-foundation-apply.sh"
 
 
 class FoundationApplyPolicyTests(unittest.TestCase):
-    def test_management_apply_trust_is_main_only_and_immutable(self) -> None:
+    def test_management_apply_trust_is_main_only_and_scoped(self) -> None:
         source = (REPOSITORY_ROOT / "terraform/organization/foundation-apply.tf").read_text(
             encoding="utf-8"
         )
@@ -29,19 +29,16 @@ class FoundationApplyPolicyTests(unittest.TestCase):
                 REPOSITORY_ROOT / ".github/workflows/reusable-foundation-apply.yml"
             ).read_text(encoding="utf-8"),
         )
-        self.assertIn(
-            'foundation_apply_oidc_subject = '
-            '"${local.foundation_ci_repository.subject_base}:pull_request"',
-            source,
-        )
         self.assertEqual(
             source.count(
-                "oidc_subjects           = [local.foundation_apply_oidc_subject]"
+                'oidc_subjects           = ["${local.foundation_ci_repository.subject_base}:ref:refs/heads/main"]'
             ),
             3,
         )
+        self.assertNotIn("foundation_apply_oidc_subject", source)
         self.assertNotIn(
-            '${local.foundation_ci_repository.subject_base}:ref:refs/heads/main', source
+            'oidc_subjects           = ["${local.foundation_ci_repository.subject_base}:pull_request"]',
+            source,
         )
         self.assertIn("token.actions.githubusercontent.com:actor_id", source)
         self.assertIn("token.actions.githubusercontent.com:repository_id", source)
@@ -97,20 +94,23 @@ class FoundationApplyPolicyTests(unittest.TestCase):
 
 
 class FoundationApplyWorkflowTests(unittest.TestCase):
-    def test_reusable_workflow_is_inert_until_a_trusted_caller_exists(self) -> None:
+    def test_immutable_reusable_workflow_owns_authorization_and_apply_order(self) -> None:
         source = (
-            REPOSITORY_ROOT / ".github/workflows/reusable-foundation-apply.yml"
+            REPOSITORY_ROOT
+            / ".github/workflows/reusable-foundation-main-apply.yml"
         ).read_text(encoding="utf-8")
 
         self.assertIn("workflow_call:", source)
         self.assertNotIn("pull_request:", source)
+        self.assertNotIn("push:", source)
         self.assertNotIn("workflow_dispatch:", source)
         self.assertIn("cancel-in-progress: false", source)
-        self.assertIn("github.event.pull_request.merged", source)
-        self.assertIn("github.event.pull_request.merge_commit_sha", source)
-        self.assertIn("github.actor_id", source)
-        self.assertIn("github.workflow_ref", source)
-        self.assertIn("refs/heads/main", source)
+        self.assertIn("authorize-foundation-apply.py", source)
+        self.assertIn("job.workflow_repository", source)
+        self.assertIn("job.workflow_sha", source)
+        self.assertIn("prepare-foundation-apply.py", source)
+        self.assertIn("needs: [reviewed-plan, apply-management-state]", source)
+        self.assertIn("needs: [reviewed-plan, apply-organization]", source)
         self.assertIn("AWSFoundationManagementStateApply", source)
         self.assertIn("AWSFoundationOrganizationApply", source)
         self.assertIn("AWSFoundationPlatformApply", source)
@@ -118,6 +118,12 @@ class FoundationApplyWorkflowTests(unittest.TestCase):
         self.assertIn("id-token: write", source)
         self.assertNotIn("terraform/github", source)
         self.assertNotIn("upload-artifact", source)
+
+        gate = source.split("  apply-management-state:", maxsplit=1)[0]
+        self.assertIn("actions: read", gate)
+        self.assertIn("pull-requests: read", gate)
+        self.assertNotIn("id-token: write", gate)
+        self.assertNotIn("secrets.TF_VAR_account_emails", gate)
 
     def test_apply_script_uses_fresh_locked_plan_and_convergence_check(self) -> None:
         source = APPLY_SCRIPT.read_text(encoding="utf-8")
