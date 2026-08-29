@@ -47,6 +47,23 @@ class FoundationActivationWorkflowTests(unittest.TestCase):
         self.assertNotIn("id-token: write", gate)
         self.assertNotIn("TF_VAR_account_emails", gate)
 
+    def test_reusable_plan_authorizes_before_receiving_oidc(self) -> None:
+        source = (
+            REPOSITORY_ROOT / ".github/workflows/reusable-foundation-plan.yml"
+        ).read_text(encoding="utf-8")
+
+        authorize, plan = source.split("  plan:\n", maxsplit=1)
+        self.assertIn("permissions: {}", authorize)
+        self.assertNotIn("id-token: write", authorize)
+        self.assertIn("Fork pull requests receive static validation only", authorize)
+        self.assertIn("github.event.pull_request.head.repo.id", authorize)
+        self.assertIn("github.actor_id", authorize)
+        self.assertIn("github.triggering_actor", authorize)
+        self.assertIn("needs: authorize", plan)
+        self.assertIn("id-token: write", plan)
+        self.assertIn("job.workflow_sha", plan)
+        self.assertIn("job.workflow_repository", plan)
+
 
 class ReviewedPlanMetadataTests(unittest.TestCase):
     def write_results(

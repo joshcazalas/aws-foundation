@@ -420,22 +420,33 @@ that bound.
 
 ## Foundation apply automation
 
-Bootstrap the automatic foundation apply path in two stages. First merge the
-PR that installs the inert permanent reusable workflow and root-specific apply
-roles. Because no merged-PR caller exists in that stage, merging it cannot run
-an apply. Create fresh local organization and platform saved plans, review
-them, validate all generated policies with IAM Access Analyzer, and apply only
-the exact approved plans. Then prove the positive main-workflow OIDC chains and
-the documented negative trust, state, and cross-account cases.
+Bootstrap the corrected automatic apply path in two stages. First merge the PR
+that installs the new reusable planner guard, immutable main-apply workflow,
+and independent merge/plan authorizer. Existing callers and AWS trust must not
+reference that workflow in the same PR; merging the control-plane code cannot
+run an apply.
 
-Only after those checks pass should the separate activation PR that adds the
-`pull_request: closed` caller be merged. The automatic sequence is
+Record the resulting full main commit SHA. A separate activation PR must:
+
+- pin the PR planner and main apply caller to that exact SHA;
+- retain the apply OIDC subject ending in `:ref:refs/heads/main`;
+- pin each apply role's `job_workflow_ref` to
+  `reusable-foundation-main-apply.yml` at the same SHA; and
+- replace `pull_request: closed` with a minimal `push`-to-`main` caller.
+
+Create a fresh local organization saved plan for that trust change, review it,
+validate the generated trust policies, and apply only the exact approved plan.
+Then rerun the activation PR plan so the reviewed plan is current before merge.
+
+The pinned reusable workflow resolves and validates the pushed merge, merger,
+original actor, rerun actor, associated PR, reviewed plan, and artifacts without
+caller-supplied authorization inputs. Its automatic sequence is
 management-state, organization, then platform. Each root makes a fresh locked
 saved plan, verifies its canonical SHA-256 digest and address/action manifest
 against the successful plan reviewed on the merged PR, applies that exact
-fresh plan, and requires a final no-change plan. A mismatch, unavailable lock,
-apply failure, or convergence failure stops the sequence. The jobs never reuse
-or download a pull-request binary plan.
+fresh plan, and requires a final no-change plan. A direct push, fork, mismatch,
+unavailable lock, apply failure, or convergence failure stops the sequence. The
+jobs never reuse or download a pull-request binary plan.
 
 For local recovery, do not reuse a CI or pull-request plan. Create a new saved
 plan for only the failed root, inspect it, obtain Josh's explicit approval for

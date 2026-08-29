@@ -145,32 +145,53 @@ temporary directory. Only redacted CLI text, a sanitized address/action
 manifest, and a SHA-256 digest of the canonical resource/output change
 projection are uploaded for the no-AWS-permission comment job.
 
-## Apply bootstrap
+## Main-only apply activation
 
-The apply path is intentionally delivered in two pull requests:
+The first activation attempt used `pull_request: closed`. GitHub correctly kept
+the OIDC subject in the `pull_request` namespace even though the separate `ref`
+claim was `refs/heads/main`. Run
+[`33276930177`](https://github.com/joshcazalas/aws-foundation/actions/runs/33276930177)
+therefore failed closed at the first AWS exchange, before OpenTofu ran.
 
-1. Merge the bootstrap PR containing the permanent but inert
-   `reusable-foundation-apply.yml`, reviewed-plan digest/manifest contract, and
-   distinct root-specific apply roles. It has no merged-PR caller and therefore
-   cannot start an apply.
-2. Locally make fresh locked organization and platform saved plans, inspect
-   them, validate their generated IAM policies with IAM Access Analyzer, and
-   apply only those exact plans after Josh explicitly approves each one.
-3. Prove the permitted main-workflow role chains and deny PR, fork, wrong-ref,
-   wrong-workflow, cross-root state, application-state, and cross-environment
-   attempts.
-4. Merge the separate activation PR containing the `pull_request: closed`
-   caller. Its first run must converge with no changes before a later harmless
-   reviewed mutation is used to prove an actual apply.
+Do not broaden the apply roles to the pull-request subject. Pull-request
+subjects remain planning-only. Apply roles retain the immutable subject:
 
-After activation, merging a same-repository PR as Josh authorizes only the
-successful plan for that exact pull-request revision. The post-merge job makes
-a new locked plan and requires both its canonical digest and its sanitized
-manifest to equal the reviewed values before applying that new saved plan.
-Management-state, organization, and platform run in order and fail closed.
-The GitHub-provider root remains manual because it requires the operator's
-short-lived GitHub CLI token; its changed plan comment includes the commands.
+```text
+repo:joshcazalas@73436834/aws-foundation@1346584597:ref:refs/heads/main
+```
 
-No GitHub App or GitHub Environment is part of the AWS authentication path.
-The AWS roles use GitHub's OIDC token with exact repository, actor, ref, and
-reusable-workflow claim restrictions.
+The corrected activation is deliberately staged:
+
+1. Merge the security-control-plane PR containing
+   `reusable-foundation-main-apply.yml`, the independent merge/plan authorizer,
+   and the hardened reusable planner. Neither caller nor AWS trust references
+   the new workflow yet, so this phase cannot apply.
+2. Record that merge's full commit SHA. In a separate activation PR, pin both
+   reusable workflow calls and both AWS `job_workflow_ref` conditions to that
+   SHA. Change the apply caller to `push` on `main` and reduce it to one call to
+   the pinned workflow.
+3. Use a fresh reviewed local organization saved plan to update the OIDC trust
+   once. Re-run the activation PR plan after that update so its reviewed plan
+   is current before merge.
+4. Merge the activation PR. The first main push must authorize the exact merged
+   PR and reviewed plan, run all three AWS roots in order, and converge with no
+   changes.
+
+The pinned reusable workflow, not the mutable caller, resolves the pushed SHA's
+associated pull request and verifies the exact merger, original actor, rerun
+actor, repository IDs, merge SHA and time, plan workflow, PR association,
+trusted reusable-workflow SHA, bot comment, and four artifacts. The gate has no
+OIDC permission. Only the three ordered apply jobs receive `id-token: write`.
+Direct pushes, fork PRs, stale plans, and callers that are not pinned to the
+trusted reusable workflow fail before AWS authentication.
+
+No GitHub App, PAT, or GitHub Environment is part of the AWS authentication
+path. The GitHub-provider root remains manual because its provider requires the
+operator's short-lived GitHub CLI token; its changed plan comment includes the
+commands.
+
+Before making the repository public, enable public-repository branch
+protection and require approval for every external contributor workflow.
+External fork PRs receive offline validation only. To obtain an AWS-backed plan
+for an external contribution, first review it and reproduce the accepted
+change on a branch in this repository.
