@@ -1,0 +1,233 @@
+name: Apply merged foundation configuration
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions: {}
+
+concurrency:
+  group: foundation-apply-sequence
+  cancel-in-progress: false
+
+jobs:
+  reviewed-plan:
+    name: Authorize reviewed plan
+    if: >-
+      github.event.pull_request.merged == true
+      && github.event.pull_request.base.ref == 'main'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor_id == '73436834'
+      && github.repository_id == '1346584597'
+      && github.repository_owner_id == '73436834'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    outputs:
+      management_state_changes: ${{ steps.validate.outputs.management_state_changes }}
+      management_state_digest: ${{ steps.validate.outputs.management_state_digest }}
+      organization_changes: ${{ steps.validate.outputs.organization_changes }}
+      organization_digest: ${{ steps.validate.outputs.organization_digest }}
+      platform_changes: ${{ steps.validate.outputs.platform_changes }}
+      platform_digest: ${{ steps.validate.outputs.platform_digest }}
+      plan_run_id: ${{ steps.review.outputs.plan_run_id }}
+    env:
+      EXPECTED_ACTOR_ID: '73436834'
+      EXPECTED_BOT_ID: '41898282'
+      EXPECTED_OWNER_ID: '73436834'
+      EXPECTED_REPOSITORY: joshcazalas/aws-foundation
+      EXPECTED_REPOSITORY_ID: '1346584597'
+      EXPECTED_WORKFLOW_ID: '344385929'
+      GH_TOKEN: ${{ github.token }}
+      PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PULL_REQUEST_MERGED_AT: ${{ github.event.pull_request.merged_at }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Select exact sticky-comment plan run
+        id: review
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_EVENT_NAME" == "pull_request" && "$GITHUB_REF" == "refs/heads/main" ]] || {
+            echo "::error::Foundation apply requires a merged main pull-request event."; exit 1;
+          }
+          [[ "$GITHUB_REPOSITORY" == "$EXPECTED_REPOSITORY" ]] || {
+            echo "::error::Unexpected repository."; exit 1;
+          }
+          [[ "$GITHUB_ACTOR_ID" == "$EXPECTED_ACTOR_ID" ]] || {
+            echo "::error::Only Josh's reviewed merge may authorize apply."; exit 1;
+          }
+
+          comments="$(gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/issues/$PULL_REQUEST_NUMBER/comments?per_page=100")"
+          plan_comments="$(
+            jq -ce \
+              --arg bot_id "$EXPECTED_BOT_ID" \
+              '[
+                .[][]
+                | select(
+                    (.user.id | tostring) == $bot_id
+                    and .user.login == "github-actions[bot]"
+                    and .user.type == "Bot"
+                    and (.body | startswith("<!-- aws-foundation-terraform-plan -->"))
+                  )
+              ]
+              | sort_by(.updated_at)' <<<"$comments"
+          )"
+          [[ "$(jq 'length' <<<"$plan_comments")" == "1" ]] || {
+            echo "::error::Expected exactly one trusted sticky plan comment."; exit 1;
+          }
+
+          comment_updated_at="$(jq -r '.[0].updated_at' <<<"$plan_comments")"
+          [[ "$comment_updated_at" < "$PULL_REQUEST_MERGED_AT" || "$comment_updated_at" == "$PULL_REQUEST_MERGED_AT" ]] || {
+            echo "::error::The selected plan comment was changed after merge."; exit 1;
+          }
+          plan_run_ids="$(
+            jq -cer \
+              '[
+                .[0].body
+                | match(
+                    "https://github[.]com/joshcazalas/aws-foundation/actions/runs/([1-9][0-9]*)";
+                    "g"
+                  )
+                | .captures[0].string
+              ]
+              | unique' <<<"$plan_comments"
+          )"
+          [[ "$(jq 'length' <<<"$plan_run_ids")" == "1" ]] || {
+            echo "::error::The sticky comment must link exactly one plan run."; exit 1;
+          }
+          plan_run_id="$(jq -r '.[0]' <<<"$plan_run_ids")"
+
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$plan_run_id")"
+          jq -e \
+            --arg head_sha "$PULL_REQUEST_HEAD_SHA" \
+            --arg merged_at "$PULL_REQUEST_MERGED_AT" \
+            --arg plan_run_id "$plan_run_id" \
+            --arg repository "$EXPECTED_REPOSITORY" \
+            --arg repository_id "$EXPECTED_REPOSITORY_ID" \
+            --arg workflow_id "$EXPECTED_WORKFLOW_ID" \
+            '
+              (.id | tostring) == $plan_run_id
+              and (.workflow_id | tostring) == $workflow_id
+              and .name == "Pull request checks"
+              and .path == ".github/workflows/pr.yml"
+              and .event == "pull_request"
+              and .status == "completed"
+              and .conclusion == "success"
+              and .head_sha == $head_sha
+              and .updated_at <= $merged_at
+              and .repository.full_name == $repository
+              and (.repository.id | tostring) == $repository_id
+              and (.referenced_workflows | length) == 1
+              and .referenced_workflows[0].path
+                == ($repository + "/.github/workflows/reusable-foundation-plan.yml@main")
+              and .referenced_workflows[0].ref == "refs/heads/main"
+              and (.referenced_workflows[0].sha | test("^[a-f0-9]{40}$"))
+            ' <<<"$run" >/dev/null || {
+              echo "::error::The sticky comment does not identify an eligible successful plan run."; exit 1;
+            }
+
+          artifacts="$(gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$plan_run_id/artifacts?per_page=100")"
+          jq -e \
+            --arg plan_run_id "$plan_run_id" \
+            '
+              [.[] | .artifacts[]]
+              | length == 4
+                and all(.[];
+                  .expired == false
+                  and (.workflow_run.id | tostring) == $plan_run_id
+                )
+                and ([.[].name] | sort) == [
+                  "foundation-plan-github",
+                  "foundation-plan-management-state",
+                  "foundation-plan-organization",
+                  "foundation-plan-platform"
+                ]
+            ' <<<"$artifacts" >/dev/null || {
+              echo "::error::The selected plan run does not contain exactly four live plan artifacts."; exit 1;
+            }
+
+          echo "plan_run_id=$plan_run_id" >>"$GITHUB_OUTPUT"
+          echo "reusable_plan_sha=$(jq -r '.referenced_workflows[0].sha' <<<"$run")" >>"$GITHUB_OUTPUT"
+
+      - name: Check out the merged main revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Verify trusted planner ancestry
+        env:
+          REUSABLE_PLAN_SHA: ${{ steps.review.outputs.reusable_plan_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || {
+            echo "::error::The checked-out revision does not match merged main."; exit 1;
+          }
+          git merge-base --is-ancestor "$REUSABLE_PLAN_SHA" "$GITHUB_SHA" || {
+            echo "::error::The reviewed run used planning code outside this main history."; exit 1;
+          }
+
+      - name: Download exact sanitized plan metadata
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: reviewed-plan
+          pattern: foundation-plan-*
+          run-id: ${{ steps.review.outputs.plan_run_id }}
+
+      - name: Validate reviewed apply inputs
+        id: validate
+        run: >-
+          python3 scripts/prepare-foundation-apply.py
+          reviewed-plan
+          "$GITHUB_OUTPUT"
+
+  apply-management-state:
+    name: Apply management state
+    needs: reviewed-plan
+    permissions:
+      contents: read
+      id-token: write
+    uses: joshcazalas/aws-foundation/.github/workflows/reusable-foundation-apply.yml@main
+    with:
+      pull_request_number: ${{ github.event.pull_request.number }}
+      reviewed_changes: ${{ needs.reviewed-plan.outputs.management_state_changes }}
+      reviewed_plan_digest: ${{ needs.reviewed-plan.outputs.management_state_digest }}
+      reviewed_plan_run_id: ${{ needs.reviewed-plan.outputs.plan_run_id }}
+      root: terraform/bootstrap/management-state
+
+  apply-organization:
+    name: Apply organization
+    needs: [reviewed-plan, apply-management-state]
+    permissions:
+      contents: read
+      id-token: write
+    uses: joshcazalas/aws-foundation/.github/workflows/reusable-foundation-apply.yml@main
+    with:
+      pull_request_number: ${{ github.event.pull_request.number }}
+      reviewed_changes: ${{ needs.reviewed-plan.outputs.organization_changes }}
+      reviewed_plan_digest: ${{ needs.reviewed-plan.outputs.organization_digest }}
+      reviewed_plan_run_id: ${{ needs.reviewed-plan.outputs.plan_run_id }}
+      root: terraform/organization
+    secrets: inherit
+
+  apply-platform:
+    name: Apply platform
+    needs: [reviewed-plan, apply-organization]
+    permissions:
+      contents: read
+      id-token: write
+    uses: joshcazalas/aws-foundation/.github/workflows/reusable-foundation-apply.yml@main
+    with:
+      pull_request_number: ${{ github.event.pull_request.number }}
+      reviewed_changes: ${{ needs.reviewed-plan.outputs.platform_changes }}
+      reviewed_plan_digest: ${{ needs.reviewed-plan.outputs.platform_digest }}
+      reviewed_plan_run_id: ${{ needs.reviewed-plan.outputs.plan_run_id }}
+      root: terraform/platform

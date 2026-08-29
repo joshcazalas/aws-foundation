@@ -1,0 +1,180 @@
+from __future__ import annotations
+
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+PREPARE_SCRIPT = REPOSITORY_ROOT / "scripts" / "prepare-foundation-apply.py"
+
+ROOTS = {
+    "management-state": (
+        "terraform/bootstrap/management-state",
+        ("management",),
+    ),
+    "organization": ("terraform/organization", ("management",)),
+    "platform": ("terraform/platform", ("production", "uat", "deployment")),
+    "github": ("terraform/github", ("github",)),
+}
+
+
+class FoundationActivationWorkflowTests(unittest.TestCase):
+    def test_caller_is_merge_only_ordered_and_unprivileged_at_the_gate(self) -> None:
+        source = (
+            REPOSITORY_ROOT / ".github/workflows/foundation-apply.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("types: [closed]", source)
+        self.assertIn("github.event.pull_request.merged == true", source)
+        self.assertIn("github.actor_id == '73436834'", source)
+        self.assertIn("github.repository_id == '1346584597'", source)
+        self.assertIn("github.repository_owner_id == '73436834'", source)
+        self.assertIn("EXPECTED_BOT_ID: '41898282'", source)
+        self.assertIn("EXPECTED_WORKFLOW_ID: '344385929'", source)
+        self.assertIn("reusable-foundation-plan.yml@main", source)
+        self.assertIn("git merge-base --is-ancestor", source)
+        self.assertIn("cancel-in-progress: false", source)
+        self.assertIn("needs: [reviewed-plan, apply-management-state]", source)
+        self.assertIn("needs: [reviewed-plan, apply-organization]", source)
+        self.assertNotIn("terraform/github\n", source)
+
+        gate = source.split("  apply-management-state:", maxsplit=1)[0]
+        self.assertIn("actions: read", gate)
+        self.assertIn("pull-requests: read", gate)
+        self.assertNotIn("id-token: write", gate)
+        self.assertNotIn("TF_VAR_account_emails", gate)
+
+
+class ReviewedPlanMetadataTests(unittest.TestCase):
+    def write_results(
+        self,
+        parent: Path,
+        overrides: dict[str, dict[str, object]] | None = None,
+    ) -> None:
+        overrides = overrides or {}
+        for slug, (root, scopes) in ROOTS.items():
+            result_directory = parent / slug
+            result_directory.mkdir(parents=True)
+            changes: list[dict[str, object]] = []
+            if slug == "platform":
+                changes = [
+                    {
+                        "address": "module.workloads_uat.aws_iam_role.example",
+                        "actions": ["update"],
+                        "scope": "uat",
+                    }
+                ]
+            overall = {
+                "add": sum("create" in item["actions"] for item in changes),
+                "change": sum("update" in item["actions"] for item in changes),
+                "destroy": sum("delete" in item["actions"] for item in changes),
+            }
+            scope_results = []
+            for scope in scopes:
+                selected = [item for item in changes if item["scope"] == scope]
+                scope_results.append(
+                    {
+                        "name": scope,
+                        "add": sum("create" in item["actions"] for item in selected),
+                        "change": sum("update" in item["actions"] for item in selected),
+                        "destroy": sum("delete" in item["actions"] for item in selected),
+                    }
+                )
+            metadata: dict[str, object] = {
+                "root": root,
+                "slug": slug,
+                "status": "success",
+                "phase": "plan",
+                "plan_digest": "a" * 64,
+                "exit_code": 2 if changes else 0,
+                "overall": overall,
+                "scopes": scope_results,
+                "changes": changes,
+            }
+            metadata.update(overrides.get(slug, {}))
+            (result_directory / "metadata.json").write_text(
+                json.dumps(metadata), encoding="utf-8"
+            )
+            (result_directory / "plan.txt").write_text(
+                "Sanitized plan text.\n", encoding="utf-8"
+            )
+
+    def run_prepare(
+        self, overrides: dict[str, dict[str, object]] | None = None
+    ) -> tuple[subprocess.CompletedProcess[str], str]:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_path = Path(temporary_directory)
+            results = temporary_path / "results"
+            results.mkdir()
+            self.write_results(results, overrides)
+            output = temporary_path / "github-output"
+            output.write_text("", encoding="utf-8")
+            completed = subprocess.run(
+                ["python3", str(PREPARE_SCRIPT), str(results), str(output)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            return completed, output.read_text(encoding="utf-8")
+
+    def test_valid_metadata_emits_only_automatic_root_inputs(self) -> None:
+        completed, output = self.run_prepare()
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("management_state_changes=[]", output)
+        self.assertIn("organization_changes=[]", output)
+        self.assertIn(
+            'platform_changes=[{"actions":["update"],'
+            '"address":"module.workloads_uat.aws_iam_role.example","scope":"uat"}]',
+            output,
+        )
+        self.assertIn("platform_digest=" + "a" * 64, output)
+        self.assertNotIn("github_changes", output)
+
+    def test_count_mismatch_fails_closed(self) -> None:
+        completed, output = self.run_prepare(
+            {"platform": {"overall": {"add": 0, "change": 0, "destroy": 0}}}
+        )
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual(output, "")
+        self.assertIn("overall counts disagree", completed.stderr)
+
+    def test_invalid_digest_fails_closed(self) -> None:
+        completed, output = self.run_prepare(
+            {"organization": {"plan_digest": "not-a-digest"}}
+        )
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual(output, "")
+        self.assertIn("plan digest is invalid", completed.stderr)
+
+    def test_unexpected_artifact_file_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_path = Path(temporary_directory)
+            results = temporary_path / "results"
+            results.mkdir()
+            self.write_results(results)
+            (results / "organization" / "raw-plan.json").write_text(
+                "{}", encoding="utf-8"
+            )
+            output = temporary_path / "github-output"
+            output.write_text("", encoding="utf-8")
+
+            completed = subprocess.run(
+                ["python3", str(PREPARE_SCRIPT), str(results), str(output)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertNotEqual(completed.returncode, 0)
+            self.assertEqual(output.read_text(encoding="utf-8"), "")
+            self.assertIn("unexpected file layout", completed.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()
