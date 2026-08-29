@@ -28,6 +28,10 @@ class PlanSummaryTests(unittest.TestCase):
                     "change": {"actions": ["create"]},
                 },
                 {
+                    "address": "module.foundation_apply_uat.aws_iam_role.this",
+                    "change": {"actions": ["create"]},
+                },
+                {
                     "address": "module.workloads_uat.aws_iam_role.this",
                     "change": {"actions": ["update"]},
                 },
@@ -61,8 +65,11 @@ class PlanSummaryTests(unittest.TestCase):
         )
         result = json.loads(completed.stdout)
 
-        self.assertEqual([item["scope"] for item in result], ["production", "uat", "deployment"])
-        self.assertEqual(result[2]["actions"], ["delete", "create"])
+        self.assertEqual(
+            [item["scope"] for item in result],
+            ["production", "uat", "uat", "deployment"],
+        )
+        self.assertEqual(result[3]["actions"], ["delete", "create"])
 
     def test_runner_writes_the_slugged_sanitized_artifact_layout(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -143,6 +150,8 @@ esac
                 metadata["scopes"],
                 [{"name": "github", "add": 0, "change": 0, "destroy": 0}],
             )
+            self.assertEqual(metadata["changes"], [])
+            self.assertRegex(metadata["plan_digest"], r"^[a-f0-9]{64}$")
 
 
 class CommentRendererTests(unittest.TestCase):
@@ -164,11 +173,13 @@ class CommentRendererTests(unittest.TestCase):
             "status": status,
             "phase": "plan",
             "exit_code": 0 if overall == (0, 0, 0) else 2,
+            "plan_digest": "a" * 64,
             "overall": {"add": overall[0], "change": overall[1], "destroy": overall[2]},
             "scopes": [
                 {"name": name, "add": counts[0], "change": counts[1], "destroy": counts[2]}
                 for name, counts in scopes.items()
             ],
+            "changes": [],
         }
         (result_directory / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
         (result_directory / "plan.txt").write_text(plan, encoding="utf-8")

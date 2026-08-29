@@ -32,6 +32,9 @@ AWS_PROFILE=management tofu -chdir=terraform/organization init \
   -backend-config=backend.s3.tfbackend -reconfigure
 AWS_PROFILE=management tofu -chdir=terraform/organization plan \
   -out=foundation-ci.tfplan
+AWS_PROFILE=management tofu -chdir=terraform/organization show \
+  foundation-ci.tfplan
+# Stop here until Josh explicitly approves this exact saved plan.
 AWS_PROFILE=management tofu -chdir=terraform/organization apply \
   foundation-ci.tfplan
 
@@ -39,6 +42,9 @@ AWS_PROFILE=management tofu -chdir=terraform/platform init \
   -backend-config=backend.s3.tfbackend -reconfigure
 AWS_PROFILE=management tofu -chdir=terraform/platform plan \
   -out=foundation-ci.tfplan
+AWS_PROFILE=management tofu -chdir=terraform/platform show \
+  foundation-ci.tfplan
+# Stop here until Josh explicitly approves this exact saved plan.
 AWS_PROFILE=management tofu -chdir=terraform/platform apply \
   foundation-ci.tfplan
 ```
@@ -135,11 +141,36 @@ adopted.
 
 The plan jobs use `-lock=false` and `-detailed-exitcode`; their saved plans are
 never reused for apply. Binary plans and raw JSON exist only in an ephemeral
-temporary directory. Only redacted CLI text and tested action counts are
-uploaded for the no-AWS-permission comment job.
+temporary directory. Only redacted CLI text, a sanitized address/action
+manifest, and a SHA-256 digest of the canonical resource/output change
+projection are uploaded for the no-AWS-permission comment job.
 
-## Deployment remains deferred
+## Apply bootstrap
 
-No phase in this runbook creates an automatic apply path. Apply workflows,
-GitHub Environments, reviewers, locking, release coupling, and rollback remain
-a separate design decision.
+The apply path is intentionally delivered in two pull requests:
+
+1. Merge the bootstrap PR containing the permanent but inert
+   `reusable-foundation-apply.yml`, reviewed-plan digest/manifest contract, and
+   distinct root-specific apply roles. It has no merged-PR caller and therefore
+   cannot start an apply.
+2. Locally make fresh locked organization and platform saved plans, inspect
+   them, validate their generated IAM policies with IAM Access Analyzer, and
+   apply only those exact plans after Josh explicitly approves each one.
+3. Prove the permitted main-workflow role chains and deny PR, fork, wrong-ref,
+   wrong-workflow, cross-root state, application-state, and cross-environment
+   attempts.
+4. Merge the separate activation PR containing the `pull_request: closed`
+   caller. Its first run must converge with no changes before a later harmless
+   reviewed mutation is used to prove an actual apply.
+
+After activation, merging a same-repository PR as Josh authorizes only the
+successful plan for that exact pull-request revision. The post-merge job makes
+a new locked plan and requires both its canonical digest and its sanitized
+manifest to equal the reviewed values before applying that new saved plan.
+Management-state, organization, and platform run in order and fail closed.
+The GitHub-provider root remains manual because it requires the operator's
+short-lived GitHub CLI token; its changed plan comment includes the commands.
+
+No GitHub App or GitHub Environment is part of the AWS authentication path.
+The AWS roles use GitHub's OIDC token with exact repository, actor, ref, and
+reusable-workflow claim restrictions.

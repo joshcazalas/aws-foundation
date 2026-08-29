@@ -108,13 +108,18 @@ configuration.
    trusted pull-request plans and the sticky plan comment.
 
 Exact commands and verification gates live in
-[`docs/operator-runbook.md`](docs/operator-runbook.md). No AWS apply is intended
-to run in CI yet.
+[`docs/operator-runbook.md`](docs/operator-runbook.md). Automatic AWS applies
+remain disabled until the staged apply identities are proven and the separate
+post-merge activation workflow reaches `main`.
 
 The production-grade pull-request checks and sticky plan-comment contract are
 recorded in [`docs/ci-design.md`](docs/ci-design.md). Their two-phase trust
 sequence is documented in [`docs/ci-bootstrap.md`](docs/ci-bootstrap.md).
-Automatic apply semantics remain intentionally deferred.
+Reviewed AWS-root applies use a staged main-only OIDC bootstrap and an exact
+post-merge plan-digest gate. The GitHub-provider root remains manual because it
+requires the operator's short-lived GitHub CLI session. See
+[`docs/ci-design.md`](docs/ci-design.md) for the root-by-root policy and
+bootstrap sequence.
 
 Pull-request CI runs formatting, hygiene, per-root validation and TFLint,
 workflow/script linting, tested plan-result rendering, and—only for branches in

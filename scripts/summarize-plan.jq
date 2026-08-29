@@ -1,8 +1,8 @@
 def scope_for_address($address):
   if $root == "terraform/platform" then
-    if ($address | test("^module\\.(foundation_plan_production|workloads_production)(\\.|\\[|$)")) then
+    if ($address | test("^module\\.(foundation_apply_production|foundation_plan_production|workloads_production)(\\.|\\[|$)")) then
       "production"
-    elif ($address | test("^module\\.(foundation_plan_uat|workloads_uat)(\\.|\\[|$)")) then
+    elif ($address | test("^module\\.(foundation_apply_uat|foundation_plan_uat|workloads_uat)(\\.|\\[|$)")) then
       "uat"
     else
       "deployment"

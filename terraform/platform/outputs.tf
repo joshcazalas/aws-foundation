@@ -34,3 +34,12 @@ output "foundation_member_plan_role_arns" {
     uat        = module.foundation_plan_uat.role_arn
   }
 }
+
+output "foundation_member_apply_role_arns" {
+  description = "Foundation platform apply role ARNs in each member account."
+  value = {
+    deployment = module.foundation_apply_deployment.role_arn
+    production = module.foundation_apply_production.role_arn
+    uat        = module.foundation_apply_uat.role_arn
+  }
+}
