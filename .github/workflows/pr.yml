@@ -131,7 +131,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: joshcazalas/aws-foundation/.github/workflows/reusable-foundation-plan.yml@main
+    uses: joshcazalas/aws-foundation/.github/workflows/reusable-foundation-plan.yml@e2ac7f640c87bae963709a844c7e9adee610f098
     with:
       root: ${{ matrix.root }}
     secrets: inherit

@@ -55,12 +55,12 @@ variable "account_emails" {
 }
 
 variable "foundation_plan_job_workflow_ref" {
-  description = "Exact main-branch reusable GitHub workflow ref enforced by the foundation plan role's OIDC trust."
+  description = "Immutable reusable GitHub workflow revision enforced by the foundation plan role's OIDC trust."
   type        = string
-  default     = "joshcazalas/aws-foundation/.github/workflows/reusable-foundation-plan.yml@refs/heads/main"
+  default     = "joshcazalas/aws-foundation/.github/workflows/reusable-foundation-plan.yml@e2ac7f640c87bae963709a844c7e9adee610f098"
 
   validation {
-    condition     = var.foundation_plan_job_workflow_ref == "joshcazalas/aws-foundation/.github/workflows/reusable-foundation-plan.yml@refs/heads/main"
-    error_message = "foundation_plan_job_workflow_ref must identify the reviewed main-branch reusable foundation plan workflow."
+    condition     = var.foundation_plan_job_workflow_ref == "joshcazalas/aws-foundation/.github/workflows/reusable-foundation-plan.yml@e2ac7f640c87bae963709a844c7e9adee610f098"
+    error_message = "foundation_plan_job_workflow_ref must identify the immutable reviewed reusable foundation plan workflow."
   }
 }

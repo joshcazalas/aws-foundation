@@ -9,6 +9,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PREPARE_SCRIPT = REPOSITORY_ROOT / "scripts" / "prepare-foundation-apply.py"
+TRUSTED_WORKFLOW_SHA = "e2ac7f640c87bae963709a844c7e9adee610f098"
 
 ROOTS = {
     "management-state": (
@@ -22,30 +23,38 @@ ROOTS = {
 
 
 class FoundationActivationWorkflowTests(unittest.TestCase):
-    def test_caller_is_merge_only_ordered_and_unprivileged_at_the_gate(self) -> None:
+    def test_caller_is_a_minimal_main_push_pinned_to_the_control_plane(self) -> None:
         source = (
             REPOSITORY_ROOT / ".github/workflows/foundation-apply.yml"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("types: [closed]", source)
-        self.assertIn("github.event.pull_request.merged == true", source)
-        self.assertIn("github.actor_id == '73436834'", source)
-        self.assertIn("github.repository_id == '1346584597'", source)
-        self.assertIn("github.repository_owner_id == '73436834'", source)
-        self.assertIn("EXPECTED_BOT_ID: '41898282'", source)
-        self.assertIn("EXPECTED_WORKFLOW_ID: '344385929'", source)
-        self.assertIn("reusable-foundation-plan.yml@main", source)
-        self.assertIn("git merge-base --is-ancestor", source)
-        self.assertIn("cancel-in-progress: false", source)
-        self.assertIn("needs: [reviewed-plan, apply-management-state]", source)
-        self.assertIn("needs: [reviewed-plan, apply-organization]", source)
-        self.assertNotIn("terraform/github\n", source)
+        self.assertIn("push:", source)
+        self.assertIn("branches: [main]", source)
+        self.assertNotIn("pull_request:", source)
+        self.assertNotIn("workflow_dispatch:", source)
+        self.assertIn(
+            "reusable-foundation-main-apply.yml@" + TRUSTED_WORKFLOW_SHA,
+            source,
+        )
+        self.assertIn("actions: read", source)
+        self.assertIn("contents: read", source)
+        self.assertIn("id-token: write", source)
+        self.assertIn("pull-requests: read", source)
+        self.assertIn("secrets: inherit", source)
+        self.assertNotIn("github.event.pull_request", source)
+        self.assertNotIn("reviewed_plan", source)
+        self.assertNotIn("terraform/", source)
 
-        gate = source.split("  apply-management-state:", maxsplit=1)[0]
-        self.assertIn("actions: read", gate)
-        self.assertIn("pull-requests: read", gate)
-        self.assertNotIn("id-token: write", gate)
-        self.assertNotIn("TF_VAR_account_emails", gate)
+    def test_pull_request_planner_is_pinned_to_the_same_control_plane(self) -> None:
+        source = (REPOSITORY_ROOT / ".github/workflows/pr.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn(
+            "reusable-foundation-plan.yml@" + TRUSTED_WORKFLOW_SHA,
+            source,
+        )
+        self.assertNotIn("reusable-foundation-plan.yml@main", source)
 
     def test_reusable_plan_authorizes_before_receiving_oidc(self) -> None:
         source = (
