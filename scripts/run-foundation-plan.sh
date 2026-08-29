@@ -65,6 +65,7 @@ plan_file="$temporary_directory/plan.tfplan"
 plan_json="$temporary_directory/plan.json"
 command_log="$temporary_directory/command.log"
 changes_json="$temporary_directory/changes.json"
+plan_digest=""
 
 scopes_json="$(printf '%s\n' "${scopes[@]}" | jq -Rsc 'split("\n") | map(select(length > 0))')"
 
@@ -78,6 +79,7 @@ write_metadata() {
     --arg slug "$result_slug" \
     --arg status "$status" \
     --arg phase "$phase" \
+    --arg plan_digest "$plan_digest" \
     --argjson exit_code "$exit_code" \
     --argjson scopes "$scopes_json" \
     '
@@ -97,6 +99,7 @@ write_metadata() {
         slug: $slug,
         status: $status,
         phase: $phase,
+        plan_digest: $plan_digest,
         exit_code: $exit_code,
         overall: {
           add: overall_action_count("create"),
@@ -111,7 +114,16 @@ write_metadata() {
               change: action_count($scope; "update"),
               destroy: action_count($scope; "delete")
             }
+        ],
+        changes: [
+          .[]
+          | {
+              address,
+              actions,
+              scope
+            }
         ]
+        | sort_by(.address)
       }
     ' "$changes_json" >"$result_directory/metadata.json"
 }
@@ -172,6 +184,12 @@ if ! tofu -chdir="$root_directory" show -json "$plan_file" >"$plan_json"; then
   write_failure 1 render-json
   exit 1
 fi
+
+plan_digest="$(
+  jq -cS -f "$script_directory/plan-review-projection.jq" "$plan_json" \
+    | sha256sum \
+    | cut -d' ' -f1
+)"
 
 jq \
   --arg root "$terraform_root" \

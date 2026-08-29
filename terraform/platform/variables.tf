@@ -50,16 +50,17 @@ variable "management_account_id" {
 }
 
 variable "member_account_access_role_name" {
-  description = "Member-account role assumed by platform providers. Local applies use the Organizations bootstrap administrator; CI overrides this with the read-only foundation plan role."
+  description = "Member-account role assumed by platform providers. Local applies use the Organizations bootstrap administrator; CI selects the distinct plan or apply role."
   type        = string
   default     = "OrganizationAccountAccessRole"
 
   validation {
     condition = contains([
+      "AWSFoundationTerraformApply",
       "AWSFoundationTerraformPlan",
       "OrganizationAccountAccessRole",
     ], var.member_account_access_role_name)
-    error_message = "member_account_access_role_name must be an approved foundation administration or plan role."
+    error_message = "member_account_access_role_name must be an approved foundation administration, plan, or apply role."
   }
 }
 

@@ -418,6 +418,37 @@ and the provider assumes the matching workload execution role. Role chaining
 caps the workload session at one hour; jobs must be designed to finish within
 that bound.
 
+## Foundation apply automation
+
+Bootstrap the automatic foundation apply path in two stages. First merge the
+PR that installs the inert permanent reusable workflow and root-specific apply
+roles. Because no merged-PR caller exists in that stage, merging it cannot run
+an apply. Create fresh local organization and platform saved plans, review
+them, validate all generated policies with IAM Access Analyzer, and apply only
+the exact approved plans. Then prove the positive main-workflow OIDC chains and
+the documented negative trust, state, and cross-account cases.
+
+Only after those checks pass should the separate activation PR that adds the
+`pull_request: closed` caller be merged. The automatic sequence is
+management-state, organization, then platform. Each root makes a fresh locked
+saved plan, verifies its canonical SHA-256 digest and address/action manifest
+against the successful plan reviewed on the merged PR, applies that exact
+fresh plan, and requires a final no-change plan. A mismatch, unavailable lock,
+apply failure, or convergence failure stops the sequence. The jobs never reuse
+or download a pull-request binary plan.
+
+For local recovery, do not reuse a CI or pull-request plan. Create a new saved
+plan for only the failed root, inspect it, obtain Josh's explicit approval for
+that exact plan, apply it by filename, and run a new plan that must show no
+changes. Do not automatically roll back organization, IAM, or state changes;
+make a reviewed forward fix.
+
+The GitHub-provider root is deliberately excluded from automatic apply. Its
+provider needs a short-lived GitHub token, so continue to use the commands in
+the GitHub bootstrap section above. A changed GitHub plan prints the same
+post-merge reminder in the sticky PR comment. No GitHub App or long-lived PAT
+is required.
+
 ## Budget email subscription
 
 Terraform creates the budget SNS topic but deliberately does not manage a
@@ -427,6 +458,9 @@ saved plans, or Terraform state.
 
 ## Apply authorization
 
-A successful plan is not permission to apply it. Each apply requires Josh's
-explicit approval of that exact saved plan. No pull request may be merged by an
-agent.
+A successful plan alone is not permission to apply it. For the activated
+foundation automation, Josh merging a same-repository PR into `main` after
+reviewing its successful current plan authorizes only the exact digest and
+resource/action manifest for that revision. Bootstrap and local recovery still
+require Josh's explicit approval of the exact saved plan. No pull request may
+be merged by an agent.

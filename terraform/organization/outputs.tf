@@ -37,3 +37,12 @@ output "foundation_plan_role_arn" {
   description = "Management-account GitHub OIDC role used for read-only foundation pull-request plans."
   value       = module.foundation_plan_role.arn
 }
+
+output "foundation_apply_role_arns" {
+  description = "Main-only GitHub OIDC roles used by reviewed foundation applies."
+  value = {
+    management_state = module.foundation_management_state_apply_role.arn
+    organization     = module.foundation_organization_apply_role.arn
+    platform         = module.foundation_platform_apply_role.arn
+  }
+}
