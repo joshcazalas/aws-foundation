@@ -174,3 +174,21 @@ short-lived GitHub CLI token; its changed plan comment includes the commands.
 No GitHub App or GitHub Environment is part of the AWS authentication path.
 The AWS roles use GitHub's OIDC token with exact repository, actor, ref, and
 reusable-workflow claim restrictions.
+
+### First activation evidence
+
+The first activation run
+[`33276930177`](https://github.com/joshcazalas/aws-foundation/actions/runs/33276930177)
+passed the immutable reviewed-plan gate and then failed closed before any
+OpenTofu command because AWS rejected the management-state OIDC exchange.
+CloudTrail recorded the token subject as
+`repo:joshcazalas@73436834/aws-foundation@1346584597:pull_request`. GitHub keeps
+that pull-request subject for a merged `pull_request: closed` event even though
+its separate `ref` claim is `refs/heads/main`. The trust fix uses the observed
+subject while retaining the exact main ref, actor, repository, owner, caller
+workflow, and reusable-workflow conditions.
+
+Because the automatic role is itself the bootstrap boundary, apply this trust
+fix once through a fresh, reviewed local organization saved plan. Then refresh
+the fix pull request's trusted plan so it reports no changes before merging it;
+that merge is the corrected no-change convergence probe.

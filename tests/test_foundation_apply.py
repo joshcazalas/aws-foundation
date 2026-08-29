@@ -30,6 +30,17 @@ class FoundationApplyPolicyTests(unittest.TestCase):
             ).read_text(encoding="utf-8"),
         )
         self.assertIn(
+            'foundation_apply_oidc_subject = '
+            '"${local.foundation_ci_repository.subject_base}:pull_request"',
+            source,
+        )
+        self.assertEqual(
+            source.count(
+                "oidc_subjects           = [local.foundation_apply_oidc_subject]"
+            ),
+            3,
+        )
+        self.assertNotIn(
             '${local.foundation_ci_repository.subject_base}:ref:refs/heads/main', source
         )
         self.assertIn("token.actions.githubusercontent.com:actor_id", source)

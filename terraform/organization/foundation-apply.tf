@@ -1,6 +1,10 @@
 locals {
   foundation_apply_caller_workflow_name = "Apply merged foundation configuration"
   foundation_apply_job_workflow_ref     = "joshcazalas/aws-foundation/.github/workflows/reusable-foundation-apply.yml@refs/heads/main"
+  # A merged pull_request:closed run has ref=refs/heads/main, but GitHub keeps
+  # the pull_request context in the OIDC subject. The separate ref, workflow,
+  # actor, repository, and reusable-workflow conditions keep this main-only.
+  foundation_apply_oidc_subject = "${local.foundation_ci_repository.subject_base}:pull_request"
 
   foundation_apply_trust_conditions = [
     {
@@ -277,7 +281,7 @@ module "foundation_management_state_apply_role" {
   enable_oidc             = true
   oidc_provider_urls      = ["token.actions.githubusercontent.com"]
   oidc_audiences          = ["sts.amazonaws.com"]
-  oidc_subjects           = ["${local.foundation_ci_repository.subject_base}:ref:refs/heads/main"]
+  oidc_subjects           = [local.foundation_apply_oidc_subject]
   trust_policy_conditions = local.foundation_apply_trust_conditions
 
   create_inline_policy = true
@@ -310,7 +314,7 @@ module "foundation_organization_apply_role" {
   enable_oidc             = true
   oidc_provider_urls      = ["token.actions.githubusercontent.com"]
   oidc_audiences          = ["sts.amazonaws.com"]
-  oidc_subjects           = ["${local.foundation_ci_repository.subject_base}:ref:refs/heads/main"]
+  oidc_subjects           = [local.foundation_apply_oidc_subject]
   trust_policy_conditions = local.foundation_apply_trust_conditions
 
   create_inline_policy = true
@@ -341,7 +345,7 @@ module "foundation_platform_apply_role" {
   enable_oidc             = true
   oidc_provider_urls      = ["token.actions.githubusercontent.com"]
   oidc_audiences          = ["sts.amazonaws.com"]
-  oidc_subjects           = ["${local.foundation_ci_repository.subject_base}:ref:refs/heads/main"]
+  oidc_subjects           = [local.foundation_apply_oidc_subject]
   trust_policy_conditions = local.foundation_apply_trust_conditions
 
   create_inline_policy = true

@@ -279,12 +279,15 @@ concurrency groups never cancel an in-progress mutation and prevent two merged
 PRs from mutating the same state simultaneously. Pull-request plans remain
 lock-free and informational, so they do not contend with an apply lock.
 
-No GitHub Environment or GitHub App is required for AWS authentication. Apply
-trust binds the immutable main-ref OIDC subject, `refs/heads/main`, Josh's actor
-ID, immutable repository/owner IDs, the exact caller workflow name, and the
-permanent main-branch reusable `job_workflow_ref`. Before AWS authentication,
-the reusable workflow also rejects any caller whose exact `github.workflow_ref`
-is not the permanent main-branch `foundation-apply.yml`. The built-in
+No GitHub Environment or GitHub App is required for AWS authentication. A
+merged `pull_request: closed` event has `refs/heads/main` in its `ref` claim but
+retains `pull_request` as its OIDC subject context. Apply trust therefore binds
+the immutable pull-request subject, the separate `refs/heads/main` claim,
+Josh's actor ID, immutable repository/owner IDs, the exact caller workflow
+name, and the permanent main-branch reusable `job_workflow_ref`. Before AWS
+authentication, the reusable workflow also rejects any caller whose exact
+`github.workflow_ref` is not the permanent main-branch
+`foundation-apply.yml`. The built-in
 `GITHUB_TOKEN` is used only by an unprivileged gate to read the bot plan comment
 and workflow metadata/artifacts.
 
