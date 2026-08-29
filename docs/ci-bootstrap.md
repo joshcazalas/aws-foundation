@@ -32,6 +32,9 @@ AWS_PROFILE=management tofu -chdir=terraform/organization init \
   -backend-config=backend.s3.tfbackend -reconfigure
 AWS_PROFILE=management tofu -chdir=terraform/organization plan \
   -out=foundation-ci.tfplan
+AWS_PROFILE=management tofu -chdir=terraform/organization show \
+  foundation-ci.tfplan
+# Stop here until Josh explicitly approves this exact saved plan.
 AWS_PROFILE=management tofu -chdir=terraform/organization apply \
   foundation-ci.tfplan
 
@@ -39,6 +42,9 @@ AWS_PROFILE=management tofu -chdir=terraform/platform init \
   -backend-config=backend.s3.tfbackend -reconfigure
 AWS_PROFILE=management tofu -chdir=terraform/platform plan \
   -out=foundation-ci.tfplan
+AWS_PROFILE=management tofu -chdir=terraform/platform show \
+  foundation-ci.tfplan
+# Stop here until Josh explicitly approves this exact saved plan.
 AWS_PROFILE=management tofu -chdir=terraform/platform apply \
   foundation-ci.tfplan
 ```
