@@ -210,7 +210,38 @@ def render_comment(results_directory: Path, repository: str, run_id: str) -> str
             "",
         )
     )
-    footer = f"\n\n[View CI run](https://github.com/{repository}/actions/runs/{run_id})"
+    github_root = next(root for root in roots if root.slug == "github")
+    github_has_changes = (
+        github_root.status == "success"
+        and github_root.overall.add + github_root.overall.change + github_root.overall.destroy > 0
+    )
+    manual_github_apply = ""
+    if github_has_changes:
+        manual_github_apply = """
+
+### Manual GitHub apply required after merge
+
+The GitHub provider needs a short-lived operator token, so this root is not
+applied automatically. After merging, authenticate `gh`, create and review a
+fresh locked plan, then apply that exact saved plan:
+
+```bash
+export GITHUB_TOKEN="$(gh auth token)"
+AWS_PROFILE=management tofu -chdir=terraform/github init \\
+  -backend-config=backend.s3.tfbackend
+AWS_PROFILE=management tofu -chdir=terraform/github plan \\
+  -out=github.tfplan
+AWS_PROFILE=management tofu -chdir=terraform/github show github.tfplan
+# After reviewing and approving that exact saved plan:
+AWS_PROFILE=management tofu -chdir=terraform/github apply github.tfplan
+unset GITHUB_TOKEN
+```
+""".rstrip()
+
+    footer = (
+        manual_github_apply
+        + f"\n\n[View CI run](https://github.com/{repository}/actions/runs/{run_id})"
+    )
 
     sections: list[tuple[str, list[tuple[str, str, str]]]] = []
     for scope, label in SCOPES:
