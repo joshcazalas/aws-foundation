@@ -8,8 +8,7 @@ This repository manages the AWS organization, identity, state, and deployment
 foundations used by my personal projects. Public resource identifiers and
 account topology are intentional; credentials, personal contact details,
 state, saved plans, and sensitive inputs are not part of the repository. See
-[Security policy](SECURITY.md), [Contributing](CONTRIBUTING.md), and
-[Repository governance](docs/repository-governance.md).
+the [security policy](SECURITY.md) for vulnerability reporting guidance.
 
 The foundation separates organization governance, deployment control, and
 application workloads:
