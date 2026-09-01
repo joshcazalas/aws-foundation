@@ -44,6 +44,10 @@ class WorkloadPolicyContractTests(unittest.TestCase):
             '67f7725c-6f97-4210-82d7-5512b31e9d03"',
             source,
         )
+        self.assertIn(
+            '"arn:aws:cloudfront::${configuration.account_id}:response-headers-policy/*"',
+            source,
+        )
         self.assertNotIn("arn:aws:cloudfront::aws:cache-policy/", source)
         self.assertNotIn("arn:aws:cloudfront::aws:response-headers-policy/", source)
 

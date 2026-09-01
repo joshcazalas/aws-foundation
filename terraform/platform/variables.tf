@@ -85,3 +85,14 @@ variable "money_on_record_plan_job_workflow_ref" {
     error_message = "money_on_record_plan_job_workflow_ref must identify the reviewed main-branch reusable plan workflow."
   }
 }
+
+variable "money_on_record_artifact_publish_job_workflow_ref" {
+  description = "Exact main-branch reusable GitHub artifact publishing workflow ref enforced in OIDC trust."
+  type        = string
+  default     = "joshcazalas/money-on-record/.github/workflows/reusable-site-publish.yml@refs/heads/main"
+
+  validation {
+    condition     = var.money_on_record_artifact_publish_job_workflow_ref == "joshcazalas/money-on-record/.github/workflows/reusable-site-publish.yml@refs/heads/main"
+    error_message = "money_on_record_artifact_publish_job_workflow_ref must identify the reviewed main-branch reusable site publishing workflow."
+  }
+}

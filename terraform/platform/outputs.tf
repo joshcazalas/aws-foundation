@@ -18,10 +18,12 @@ output "money_on_record_roles" {
       workload_plan_role_arn   = module.workloads_production.plan_role_arn
     }
     uat = {
-      hub_deploy_role_arn      = module.money_on_record_hub_roles["uat"].deploy_role_arn
-      hub_plan_role_arn        = module.money_on_record_hub_roles["uat"].plan_role_arn
-      workload_deploy_role_arn = module.workloads_uat.deploy_role_arn
-      workload_plan_role_arn   = module.workloads_uat.plan_role_arn
+      hub_artifact_publish_role_arn      = module.money_on_record_uat_artifact_publish_hub_role.arn
+      hub_deploy_role_arn                = module.money_on_record_hub_roles["uat"].deploy_role_arn
+      hub_plan_role_arn                  = module.money_on_record_hub_roles["uat"].plan_role_arn
+      workload_artifact_publish_role_arn = module.money_on_record_uat_artifact_publish_workload_role.arn
+      workload_deploy_role_arn           = module.workloads_uat.deploy_role_arn
+      workload_plan_role_arn             = module.workloads_uat.plan_role_arn
     }
   }
 }

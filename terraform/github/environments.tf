@@ -22,7 +22,7 @@ locals {
     }
   }
 
-  environment_variables = merge([
+  terraform_environment_variables = merge([
     for environment, config in local.environments : {
       for name, value in {
         AWS_ACCOUNT_ID            = config.account_id
@@ -39,6 +39,39 @@ locals {
       }
     }
   ]...)
+
+  artifact_environment_variables = {
+    "uat:AWS_ARTIFACT_PUBLISH_ROLE_ARN" = {
+      environment = "uat"
+      name        = "AWS_ARTIFACT_PUBLISH_ROLE_ARN"
+      value       = "arn:aws:iam::${local.deployment_account_id}:role/MoneyOnRecordArtifactPublishUat"
+    }
+    "uat:AWS_ARTIFACT_PUBLISH_WORKLOAD_ROLE_ARN" = {
+      environment = "uat"
+      name        = "AWS_ARTIFACT_PUBLISH_WORKLOAD_ROLE_ARN"
+      value       = "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/MoneyOnRecordArtifactPublish"
+    }
+    "uat:SITE_ARTIFACT_BUCKET" = {
+      environment = "uat"
+      name        = "SITE_ARTIFACT_BUCKET"
+      value       = "money-on-record-uat-${local.account_ids["workloads-uat"]}-site"
+    }
+    "uat:SITE_CLOUDFRONT_DISTRIBUTION_ID" = {
+      environment = "uat"
+      name        = "SITE_CLOUDFRONT_DISTRIBUTION_ID"
+      value       = "EEZ2CUTI93E10"
+    }
+    "uat:SITE_URL" = {
+      environment = "uat"
+      name        = "SITE_URL"
+      value       = "https://d32c1cs24r00f5.cloudfront.net"
+    }
+  }
+
+  environment_variables = merge(
+    local.terraform_environment_variables,
+    local.artifact_environment_variables,
+  )
 
   repository_variables = merge(
     {
