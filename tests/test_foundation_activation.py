@@ -9,6 +9,16 @@ TRUSTED_PLAN_WORKFLOW_SHA = "e2ac7f640c87bae963709a844c7e9adee610f098"
 
 
 class FoundationWorkflowBoundaryTests(unittest.TestCase):
+    def test_pr_checks_do_not_repeat_after_merge(self) -> None:
+        source = (REPOSITORY_ROOT / ".github/workflows/pr.yml").read_text(
+            encoding="utf-8"
+        )
+
+        triggers = source.split("permissions:", maxsplit=1)[0]
+        self.assertIn("pull_request:", triggers)
+        self.assertIn("workflow_dispatch:", triggers)
+        self.assertNotIn("push:", triggers)
+
     def test_pull_request_planner_remains_pinned(self) -> None:
         source = (REPOSITORY_ROOT / ".github/workflows/pr.yml").read_text(
             encoding="utf-8"

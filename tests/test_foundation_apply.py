@@ -17,11 +17,6 @@ class FoundationApplyPolicyTests(unittest.TestCase):
             REPOSITORY_ROOT / "terraform/organization/foundation-apply.tf"
         ).read_text(encoding="utf-8")
 
-        self.assertIn(
-            "joshcazalas/aws-foundation/.github/workflows/"
-            "foundation-apply.yml@refs/heads/main",
-            source,
-        )
         self.assertEqual(
             source.count(
                 'oidc_subjects           = ["${local.foundation_ci_repository.subject_base}:ref:refs/heads/main"]'
@@ -35,8 +30,9 @@ class FoundationApplyPolicyTests(unittest.TestCase):
         self.assertIn("token.actions.githubusercontent.com:actor_id", source)
         self.assertIn("token.actions.githubusercontent.com:repository_id", source)
         self.assertIn("token.actions.githubusercontent.com:repository_owner_id", source)
-        self.assertIn("token.actions.githubusercontent.com:workflow_ref", source)
         self.assertIn("token.actions.githubusercontent.com:workflow", source)
+        self.assertIn('"Apply merged foundation configuration"', source)
+        self.assertNotIn("token.actions.githubusercontent.com:workflow_ref", source)
         self.assertNotIn("token.actions.githubusercontent.com:job_workflow_ref", source)
         self.assertIn('management_state = "AWSFoundationManagementStateApply"', source)
         self.assertIn('organization     = "AWSFoundationOrganizationApply"', source)

@@ -157,17 +157,16 @@ repo:joshcazalas@73436834/aws-foundation@1346584597:ref:refs/heads/main
 
 The direct apply workflow is the remaining OIDC boundary. Trust also requires
 the immutable repository and owner IDs, Josh's actor ID, the separate
-`refs/heads/main` claim, the workflow name, and this exact workflow ref:
+`refs/heads/main` claim, and the exact workflow name. AWS IAM supports that
+GitHub `workflow` claim but does not expose `workflow_ref` as a trust-policy
+condition key.
 
-```text
-joshcazalas/aws-foundation/.github/workflows/foundation-apply.yml@refs/heads/main
-```
-
-Before merging the cleanup PR, use a fresh local organization saved plan to
-replace the old reusable-workflow `job_workflow_ref` condition with the direct
-`workflow_ref` condition. Review that only the three apply-role trust policies
-change, apply the exact saved plan, and then re-run the PR plan. The re-run must
-show no remaining trust-policy changes.
+The first direct-workflow activation incorrectly added a `workflow_ref`
+condition, which AWS IAM does not expose for GitHub tokens. Before merging the
+follow-up PR, use a fresh local organization saved plan to remove only that
+unsupported condition from the three apply roles. The already-deployed direct
+workflow-name condition remains. Apply the exact saved plan, then re-run the PR
+plan; it must show no remaining trust-policy changes.
 
 After merge, the `push` event supplies the main-ref subject. The direct workflow
 runs management-state, organization, and platform in order. Each job receives

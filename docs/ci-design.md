@@ -258,9 +258,9 @@ required check remains failed.
 The protected `main` branch is the automatic-apply trust boundary. Pull-request
 workflows can assume only the read-only plan role. The write-capable roles
 require the immutable repository and owner IDs, Josh's actor ID, the exact
-main-ref subject and `ref` claim, and the direct
-`foundation-apply.yml@refs/heads/main` workflow identity. No pull-request OIDC
-subject can satisfy that trust policy.
+main-ref subject and `ref` claim, and the direct workflow name. No pull-request
+OIDC subject can satisfy that trust policy. AWS IAM supports GitHub's `workflow`
+claim but does not expose `workflow_ref` as a trust-policy condition key.
 
 A push that updates `main` runs the three AWS roots in order. Each root uses
 `tofu apply -auto-approve`, which creates and immediately applies its own fresh
@@ -289,12 +289,12 @@ remains available only to the organization job.
 
 ### Apply bootstrap sequence
 
-1. Open the cleanup PR containing the direct main workflow and matching AWS
-   trust policy.
+1. Open the follow-up PR containing the direct main workflow and AWS-supported
+   trust conditions.
 2. Manually create, inspect, and apply that branch's exact organization saved
-   plan so the existing apply roles trust the direct workflow before merge.
+   plan so the apply roles no longer require unsupported `workflow_ref`.
 3. Re-run the PR plan and require no remaining AWS trust changes.
-4. Merge the cleanup PR. Its main push runs the direct ordered workflow and must
+4. Merge the follow-up PR. Its main push runs the direct ordered workflow and must
    converge without changes.
 
 A following security-bootstrap change moves the foundation OIDC providers,
@@ -315,6 +315,7 @@ for organization, IAM, or state infrastructure; failures are forward-fixed.
 - [TFLint configuration](https://github.com/terraform-linters/tflint/blob/master/docs/user-guide/config.md)
 - [TFLint AWS ruleset](https://github.com/terraform-linters/tflint-ruleset-aws)
 - [GitHub Actions secure use](https://docs.github.com/en/actions/reference/security/secure-use)
+- [AWS IAM OIDC condition keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_iam-condition-keys.html#condition-keys-wif)
 - [Checkov project](https://github.com/bridgecrewio/checkov)
 - [Conftest project](https://github.com/open-policy-agent/conftest)
 - [actionlint project](https://github.com/rhysd/actionlint)
