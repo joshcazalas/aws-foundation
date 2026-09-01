@@ -368,26 +368,22 @@ may see object names beneath the same component prefix; that metadata-only list
 permission does not grant `GetObject` on the other environment's state.
 
 The workload plan roles receive only the S3 and CloudFront reads required to
-refresh the current static-site root. Workload deploy roles receive those reads
-plus lifecycle management for the environment's deterministic site-bucket ARN,
+refresh the current static-site root, including public site objects beneath the
+environment's exact bucket ARN. Workload deploy roles receive those reads plus
+lifecycle management for those exact objects, the deterministic site bucket,
 its account-local CloudFront origin access controls, and distributions carrying
-both `Project=money-on-record` and the matching `Environment` tag. CloudFront
-managed-policy list APIs, origin-access-control creation, and response-header
-policy creation require `Resource = "*"`; do not broaden any other statement
-to compensate. ACM, WAF, ECS, and ETL permissions are not included and require
-later reviewed foundation changes when their workflows and resources exist.
+both `Project=money-on-record` and the matching `Environment` tag. This lets one
+saved Terraform plan describe infrastructure and browser artifact changes, and
+one apply complete the environment deployment. Neither environment can read or
+mutate the other environment's bucket or objects.
 
-The UAT site publisher is a separate permission boundary from Terraform. Its
-dedicated `MoneyOnRecordArtifactPublishUat` GitHub hub can be assumed only by
-the reviewed `reusable-site-publish.yml` workflow on `main` in the `uat`
-environment. It can assume only the UAT `MoneyOnRecordArtifactPublish` workload
-role. That workload role can list the exact private site bucket, manage objects
-inside that bucket, and create or inspect invalidations only for distribution
-`EEZ2CUTI93E10`. It cannot read Terraform state, assume either Terraform role,
-publish to production, change bucket configuration, or change the CloudFront
-distribution. The UAT GitHub environment receives only the non-secret exact
-role, bucket, distribution, and site URL values required to validate that
-boundary at runtime.
+CloudFront managed-policy list APIs, origin-access-control creation, and
+response-header policy creation require `Resource = "*"`; do not broaden any
+other statement to compensate. CloudFront invalidations are unnecessary because
+HTML and manifests use revalidation cache controls while assets have
+content-addressed names. ACM, WAF, ECS, and ETL permissions are not included and
+require later reviewed foundation changes when their workflows and resources
+exist.
 
 Create and inspect the final access plan:
 

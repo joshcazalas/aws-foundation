@@ -35,6 +35,13 @@ locals {
         ]
         resources = [resources.bucket_arn]
       }
+      ReadStaticSiteObjects = {
+        actions = [
+          "s3:GetObject",
+          "s3:GetObjectTagging",
+        ]
+        resources = ["${resources.bucket_arn}/*"]
+      }
       # CloudFront's managed-policy discovery APIs do not support resource ARNs.
       DiscoverManagedCloudFrontPolicies = {
         actions = [
@@ -231,82 +238,18 @@ locals {
           ]
           resources = [resources.response_headers_policy_arn]
         }
+        ManageStaticSiteObjects = {
+          actions = [
+            "s3:DeleteObject",
+            "s3:DeleteObjectTagging",
+            "s3:PutObject",
+            "s3:PutObjectTagging",
+          ]
+          resources = ["${resources.bucket_arn}/*"]
+        }
       },
     )
   }
-}
-
-locals {
-  money_on_record_uat_artifact_resources = {
-    bucket_arn       = "arn:aws:s3:::money-on-record-uat-${local.account_ids["workloads-uat"]}-site"
-    distribution_arn = "arn:aws:cloudfront::${local.account_ids["workloads-uat"]}:distribution/EEZ2CUTI93E10"
-  }
-}
-
-module "money_on_record_uat_artifact_publish_workload_role" {
-  providers = {
-    aws = aws.workloads_uat
-  }
-
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role"
-  version = "6.8.0"
-
-  name                 = local.money_on_record_uat_artifact_publisher.workload_role_name
-  use_name_prefix      = false
-  description          = "UAT site artifact publishing role for Money on Record"
-  max_session_duration = 3600
-
-  trust_policy_permissions = {
-    AllowArtifactPublishingHub = {
-      actions = [
-        "sts:AssumeRole",
-        "sts:TagSession",
-      ]
-      principals = [{
-        type        = "AWS"
-        identifiers = [module.money_on_record_uat_artifact_publish_hub_role.arn]
-      }]
-    }
-  }
-
-  create_inline_policy = true
-  inline_policy_permissions = {
-    ListPublishedSite = {
-      actions   = ["s3:ListBucket"]
-      resources = [local.money_on_record_uat_artifact_resources.bucket_arn]
-      condition = [{
-        test     = "StringLike"
-        variable = "s3:prefix"
-        values   = ["", "*"]
-      }]
-    }
-    ManagePublishedSiteObjects = {
-      actions = [
-        "s3:DeleteObject",
-        "s3:GetObject",
-        "s3:PutObject",
-      ]
-      resources = ["${local.money_on_record_uat_artifact_resources.bucket_arn}/*"]
-    }
-    InvalidatePublishedSite = {
-      actions = [
-        "cloudfront:CreateInvalidation",
-        "cloudfront:GetInvalidation",
-      ]
-      resources = [local.money_on_record_uat_artifact_resources.distribution_arn]
-    }
-  }
-
-  tags = {
-    Application = "money-on-record"
-    Component   = "artifact-publishing"
-    Environment = "uat"
-  }
-
-  depends_on = [
-    module.foundation_apply_uat,
-    module.workloads_uat,
-  ]
 }
 
 module "workloads_uat" {

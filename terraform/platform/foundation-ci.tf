@@ -74,7 +74,6 @@ module "foundation_apply_deployment" {
   managed_role_arns = [
     "arn:aws:iam::${local.account_ids["deployment"]}:role/AWSFoundationTerraformApply",
     "arn:aws:iam::${local.account_ids["deployment"]}:role/AWSFoundationTerraformPlan",
-    "arn:aws:iam::${local.account_ids["deployment"]}:role/MoneyOnRecordArtifactPublishUat",
     "arn:aws:iam::${local.account_ids["deployment"]}:role/MoneyOnRecordDeployProd",
     "arn:aws:iam::${local.account_ids["deployment"]}:role/MoneyOnRecordDeployUat",
     "arn:aws:iam::${local.account_ids["deployment"]}:role/MoneyOnRecordPlanProd",
@@ -93,7 +92,6 @@ module "foundation_apply_uat" {
   managed_role_arns = [
     "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/AWSFoundationTerraformApply",
     "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/AWSFoundationTerraformPlan",
-    "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/MoneyOnRecordArtifactPublish",
     "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/MoneyOnRecordTerraformDeploy",
     "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/MoneyOnRecordTerraformPlan",
   ]

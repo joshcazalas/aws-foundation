@@ -31,11 +31,6 @@ locals {
     "shared",
     "static-site",
   ]
-
-  money_on_record_uat_artifact_publisher = {
-    hub_role_name      = "MoneyOnRecordArtifactPublishUat"
-    workload_role_name = "MoneyOnRecordArtifactPublish"
-  }
 }
 
 resource "aws_iam_openid_connect_provider" "github_actions" {
@@ -62,76 +57,6 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
       error_message = "Set exact plan and deploy job_workflow_ref values before enabling any Money on Record state access."
     }
   }
-}
-
-module "money_on_record_uat_artifact_publish_hub_role" {
-  providers = {
-    aws = aws.deployment
-  }
-
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role"
-  version = "6.8.0"
-
-  name                 = local.money_on_record_uat_artifact_publisher.hub_role_name
-  use_name_prefix      = false
-  description          = "GitHub UAT site artifact publishing hub for Money on Record"
-  max_session_duration = 3600
-
-  enable_oidc        = true
-  oidc_provider_urls = ["token.actions.githubusercontent.com"]
-  oidc_audiences     = ["sts.amazonaws.com"]
-  oidc_subjects      = ["${local.github_repository.subject_base}:environment:uat"]
-  trust_policy_conditions = [
-    {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:repository_id"
-      values   = [local.github_repository.id]
-    },
-    {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:repository_owner_id"
-      values   = [local.github_repository.owner_id]
-    },
-    {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:environment"
-      values   = ["uat"]
-    },
-    {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:ref"
-      values   = ["refs/heads/main"]
-    },
-    {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:job_workflow_ref"
-      values   = [var.money_on_record_artifact_publish_job_workflow_ref]
-    },
-  ]
-
-  create_inline_policy = true
-  inline_policy_permissions = {
-    AssumeArtifactPublishRole = {
-      actions = [
-        "sts:AssumeRole",
-        "sts:TagSession",
-      ]
-      resources = [
-        "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/${local.money_on_record_uat_artifact_publisher.workload_role_name}",
-      ]
-    }
-  }
-
-  tags = {
-    Application = "money-on-record"
-    Component   = "artifact-publishing"
-    Environment = "uat"
-  }
-
-  depends_on = [
-    aws_iam_openid_connect_provider.github_actions,
-    module.foundation_apply_deployment,
-  ]
 }
 
 module "money_on_record_hub_roles" {
