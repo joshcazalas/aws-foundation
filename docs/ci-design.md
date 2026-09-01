@@ -136,7 +136,9 @@ Each foundation plan job receives only:
   bootstrap and organization roots; and
 - permission to assume only `AWSFoundationTerraformPlan` in deployment, UAT,
   and production. Those roles expose only Terraform-managed control-plane
-  configuration, never application data, credentials, secrets, or state.
+  configuration and, where Terraform owns a public static site, that exact
+  environment's public delivery objects required for provider refresh. They
+  never expose credentials, secrets, private application data, or state.
 
 Plan-role trust must bind the exact immutable-ID pull-request subject
 `repo:joshcazalas@73436834/aws-foundation@1346584597:pull_request` plus the

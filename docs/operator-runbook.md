@@ -377,6 +377,12 @@ saved Terraform plan describe infrastructure and browser artifact changes, and
 one apply complete the environment deployment. Neither environment can read or
 mutate the other environment's bucket or objects.
 
+Treat each site bucket as public-delivery storage even though S3 access remains
+private behind CloudFront. Never place credentials, secrets, private source
+material, or non-public application data in it. Terraform plan access spans
+the exact environment bucket because provider refresh requires object metadata
+for every Terraform-owned site key.
+
 CloudFront managed-policy list APIs, origin-access-control creation, and
 response-header policy creation require `Resource = "*"`; do not broaden any
 other statement to compensate. CloudFront invalidations are unnecessary because
