@@ -128,7 +128,10 @@ module "money_on_record_uat_artifact_publish_hub_role" {
     Environment = "uat"
   }
 
-  depends_on = [aws_iam_openid_connect_provider.github_actions]
+  depends_on = [
+    aws_iam_openid_connect_provider.github_actions,
+    module.foundation_apply_deployment,
+  ]
 }
 
 module "money_on_record_hub_roles" {

@@ -9,9 +9,47 @@ WORKLOAD = (REPOSITORY_ROOT / "terraform/platform/workload-execution.tf").read_t
 )
 VARIABLES = (REPOSITORY_ROOT / "terraform/platform/variables.tf").read_text(encoding="utf-8")
 GITHUB = (REPOSITORY_ROOT / "terraform/github/environments.tf").read_text(encoding="utf-8")
+FOUNDATION_CI = (REPOSITORY_ROOT / "terraform/platform/foundation-ci.tf").read_text(
+    encoding="utf-8"
+)
 
 
 class ArtifactPublisherContractTests(unittest.TestCase):
+    def test_foundation_apply_roles_can_create_only_the_reviewed_artifact_roles(
+        self,
+    ) -> None:
+        deployment_apply = FOUNDATION_CI.split(
+            'module "foundation_apply_deployment"', 1
+        )[1].split('module "foundation_apply_uat"', 1)[0]
+        uat_apply = FOUNDATION_CI.split('module "foundation_apply_uat"', 1)[1].split(
+            'module "foundation_apply_production"', 1
+        )[0]
+        production_apply = FOUNDATION_CI.split(
+            'module "foundation_apply_production"', 1
+        )[1]
+        hub_contract = OIDC.split(
+            'module "money_on_record_uat_artifact_publish_hub_role"', 1
+        )[1].split('module "money_on_record_hub_roles"', 1)[0]
+        workload_contract = WORKLOAD.split(
+            'module "money_on_record_uat_artifact_publish_workload_role"', 1
+        )[1].split('module "workloads_uat"', 1)[0]
+
+        self.assertIn(
+            'arn:aws:iam::${local.account_ids["deployment"]}:'
+            'role/MoneyOnRecordArtifactPublishUat',
+            deployment_apply,
+        )
+        self.assertNotIn("role/MoneyOnRecordArtifactPublish\"", deployment_apply)
+        self.assertIn(
+            'arn:aws:iam::${local.account_ids["workloads-uat"]}:'
+            'role/MoneyOnRecordArtifactPublish',
+            uat_apply,
+        )
+        self.assertNotIn("MoneyOnRecordArtifactPublishUat", uat_apply)
+        self.assertNotIn("MoneyOnRecordArtifactPublish", production_apply)
+        self.assertIn("module.foundation_apply_deployment", hub_contract)
+        self.assertIn("module.foundation_apply_uat", workload_contract)
+
     def test_oidc_trust_is_exactly_main_uat_and_the_reusable_publisher(self) -> None:
         self.assertIn('hub_role_name      = "MoneyOnRecordArtifactPublishUat"', OIDC)
         self.assertIn(

@@ -303,7 +303,10 @@ module "money_on_record_uat_artifact_publish_workload_role" {
     Environment = "uat"
   }
 
-  depends_on = [module.workloads_uat]
+  depends_on = [
+    module.foundation_apply_uat,
+    module.workloads_uat,
+  ]
 }
 
 module "workloads_uat" {
