@@ -66,7 +66,6 @@ module "foundation_apply_deployment" {
 
   source = "../modules/foundation-account-apply-role"
 
-  account_id                = local.account_ids["deployment"]
   management_apply_role_arn = local.foundation_management_apply_role_arn
   managed_bucket_arns       = [aws_s3_bucket.application_state.arn]
   managed_oidc_provider_arns = [
@@ -89,7 +88,6 @@ module "foundation_apply_uat" {
 
   source = "../modules/foundation-account-apply-role"
 
-  account_id                = local.account_ids["workloads-uat"]
   management_apply_role_arn = local.foundation_management_apply_role_arn
   managed_role_arns = [
     "arn:aws:iam::${local.account_ids["workloads-uat"]}:role/AWSFoundationTerraformApply",
@@ -106,7 +104,6 @@ module "foundation_apply_production" {
 
   source = "../modules/foundation-account-apply-role"
 
-  account_id                = local.account_ids["workloads-prod"]
   management_apply_role_arn = local.foundation_management_apply_role_arn
   managed_role_arns = [
     "arn:aws:iam::${local.account_ids["workloads-prod"]}:role/AWSFoundationTerraformApply",

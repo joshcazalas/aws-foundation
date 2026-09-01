@@ -1,0 +1,6 @@
+# This foundation has one accountable maintainer. The explicit critical paths
+# make ownership visible even though the repository-wide rule already applies.
+* @joshcazalas
+/.github/ @joshcazalas
+/scripts/ @joshcazalas
+/terraform/ @joshcazalas
