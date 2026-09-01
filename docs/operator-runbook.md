@@ -420,23 +420,53 @@ that bound.
 
 ## Foundation apply automation
 
-Bootstrap the corrected automatic apply path in two stages. First merge the PR
-that installs the new reusable planner guard, immutable main-apply workflow,
-and independent merge/plan authorizer. Existing callers and AWS trust must not
-reference that workflow in the same PR; merging the control-plane code cannot
-run an apply.
+The corrected automatic apply control plane was merged at immutable commit
+`e2ac7f640c87bae963709a844c7e9adee610f098`. The separate activation PR must:
 
-Record the resulting full main commit SHA. A separate activation PR must:
-
-- pin the PR planner and main apply caller to that exact SHA;
+- pin the PR planner and main apply caller to that exact commit;
 - retain the apply OIDC subject ending in `:ref:refs/heads/main`;
 - pin each apply role's `job_workflow_ref` to
-  `reusable-foundation-main-apply.yml` at the same SHA; and
+  `reusable-foundation-main-apply.yml` at that commit; and
 - replace `pull_request: closed` with a minimal `push`-to-`main` caller.
 
-Create a fresh local organization saved plan for that trust change, review it,
-validate the generated trust policies, and apply only the exact approved plan.
-Then rerun the activation PR plan so the reviewed plan is current before merge.
+The activation PR's first AWS-backed plans fail closed because the deployed
+plan role still trusts the old `@refs/heads/main` workflow identity. From the
+checked-out activation branch, create and inspect the one-time trust plan:
+
+```bash
+aws sso login --profile management
+aws sts get-caller-identity --profile management
+
+AWS_PROFILE=management tofu -chdir=terraform/organization init \
+  -backend-config=backend.s3.tfbackend -reconfigure
+AWS_PROFILE=management tofu -chdir=terraform/organization plan \
+  -out=foundation-main-apply-activation.tfplan
+AWS_PROFILE=management tofu -chdir=terraform/organization show \
+  foundation-main-apply-activation.tfplan
+
+tofu -chdir=terraform/organization show -json \
+  foundation-main-apply-activation.tfplan |
+  jq -r '
+    .resource_changes[]
+    | select(.change.actions != ["no-op"])
+    | [.address, (.change.actions | join(","))]
+    | @tsv
+  '
+```
+
+The plan must update only the OIDC trust policies for the foundation plan role
+and three root-specific apply roles. It must retain the exact main-ref apply
+subject and must not change permissions policies. Stop on any other mutation.
+After Josh explicitly approves that exact saved plan, apply it by filename:
+
+```bash
+AWS_PROFILE=management tofu -chdir=terraform/organization apply \
+  foundation-main-apply-activation.tfplan
+```
+
+Re-run the activation PR workflow after the trust update. Review the new
+successful sticky plan, which must show no remaining infrastructure changes,
+before merging the activation PR.
 
 The pinned reusable workflow resolves and validates the pushed merge, merger,
 original actor, rerun actor, associated PR, reviewed plan, and artifacts without

@@ -9,6 +9,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 APPLY_SCRIPT = REPOSITORY_ROOT / "scripts" / "run-foundation-apply.sh"
+TRUSTED_WORKFLOW_SHA = "e2ac7f640c87bae963709a844c7e9adee610f098"
 
 
 class FoundationApplyPolicyTests(unittest.TestCase):
@@ -19,15 +20,11 @@ class FoundationApplyPolicyTests(unittest.TestCase):
 
         self.assertIn(
             "joshcazalas/aws-foundation/.github/workflows/"
-            "reusable-foundation-apply.yml@refs/heads/main",
+            "reusable-foundation-main-apply.yml@" + TRUSTED_WORKFLOW_SHA,
             source,
         )
-        self.assertIn(
-            "joshcazalas/aws-foundation/.github/workflows/"
-            "foundation-apply.yml@refs/heads/main",
-            (
-                REPOSITORY_ROOT / ".github/workflows/reusable-foundation-apply.yml"
-            ).read_text(encoding="utf-8"),
+        self.assertFalse(
+            (REPOSITORY_ROOT / ".github/workflows/reusable-foundation-apply.yml").exists()
         )
         self.assertEqual(
             source.count(
@@ -45,6 +42,12 @@ class FoundationApplyPolicyTests(unittest.TestCase):
         self.assertIn("token.actions.githubusercontent.com:repository_owner_id", source)
         self.assertIn("token.actions.githubusercontent.com:job_workflow_ref", source)
         self.assertIn("token.actions.githubusercontent.com:workflow", source)
+        self.assertIn(
+            "reusable-foundation-plan.yml@" + TRUSTED_WORKFLOW_SHA,
+            (REPOSITORY_ROOT / "terraform/organization/variables.tf").read_text(
+                encoding="utf-8"
+            ),
+        )
         self.assertIn('management_state = "AWSFoundationManagementStateApply"', source)
         self.assertIn('organization     = "AWSFoundationOrganizationApply"', source)
         self.assertIn('platform         = "AWSFoundationPlatformApply"', source)

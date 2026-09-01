@@ -160,19 +160,21 @@ subjects remain planning-only. Apply roles retain the immutable subject:
 repo:joshcazalas@73436834/aws-foundation@1346584597:ref:refs/heads/main
 ```
 
-The corrected activation is deliberately staged:
+The corrected activation is deliberately staged. The control-plane PR merged
+as commit `e2ac7f640c87bae963709a844c7e9adee610f098`; that immutable revision is
+the only reusable-workflow revision trusted by the activation:
 
-1. Merge the security-control-plane PR containing
+1. The merged security-control-plane PR contains
    `reusable-foundation-main-apply.yml`, the independent merge/plan authorizer,
-   and the hardened reusable planner. Neither caller nor AWS trust references
-   the new workflow yet, so this phase cannot apply.
-2. Record that merge's full commit SHA. In a separate activation PR, pin both
-   reusable workflow calls and both AWS `job_workflow_ref` conditions to that
-   SHA. Change the apply caller to `push` on `main` and reduce it to one call to
-   the pinned workflow.
-3. Use a fresh reviewed local organization saved plan to update the OIDC trust
-   once. Re-run the activation PR plan after that update so its reviewed plan
-   is current before merge.
+   and the hardened reusable planner. It did not change AWS trust or activate
+   the new workflow.
+2. The separate activation PR pins both reusable workflow calls and both AWS
+   `job_workflow_ref` conditions to the commit above. It changes the apply
+   caller to `push` on `main` and reduces it to one call to the pinned workflow.
+3. Before merging activation, use a fresh reviewed local organization saved
+   plan to update the OIDC trust once. The activation PR's initial AWS-backed
+   plans are expected to fail closed until this plan is applied. Re-run them
+   after the trust update so the reviewed plan is current.
 4. Merge the activation PR. The first main push must authorize the exact merged
    PR and reviewed plan, run all three AWS roots in order, and converge with no
    changes.

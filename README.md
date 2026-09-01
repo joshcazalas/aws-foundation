@@ -106,8 +106,9 @@ configuration.
    initialize named workspaces or deploy resources.
 9. Bootstrap the foundation repository's read-only OIDC plan chain, then enable
    trusted same-repository pull-request plans and the sticky plan comment.
-10. Land the immutable apply workflow, pin it by full commit SHA in both the
-    caller and AWS trust, and activate the verified `push`-to-`main` apply gate.
+10. Pin the immutable apply workflow at control-plane commit
+    `e2ac7f640c87bae963709a844c7e9adee610f098` in both the caller and AWS trust,
+    then activate the verified `push`-to-`main` apply gate.
 11. Move foundation CI identities into the manual security-bootstrap root so
     automatic apply roles cannot rewrite their own trust or permissions.
 
