@@ -23,10 +23,9 @@ or bootstrap apply is authorized merely by editing this document.
   That role can assume only the dedicated read-only foundation plan role in
   each member account. Application deployment identities are separate and
   cannot access organization or foundation state.
-- A pull-request plan is an informational post-merge preview. It is never the
-  binary plan later passed to `apply`; the post-merge workflow creates a new,
-  locked plan against current state and requires both its canonical digest and
-  resource/action manifest to match the reviewed preview.
+- A pull-request plan is an informational post-merge preview. The main workflow
+  runs a fresh automatic apply against current configuration and state; it does
+  not reuse or cryptographically bind itself to the pull-request plan.
 - Trivy is excluded from the toolchain.
 - No agent may merge a pull request or apply a plan without Josh's explicit
   authorization for that specific action.
@@ -192,7 +191,7 @@ The visible comment begins with:
 ```markdown
 ## Terraform Plan - post-merge preview
 
-What `terraform apply` will do when this PR merges.
+Expected changes after merge. The main workflow plans again against current state.
 ```
 
 It then renders a compact environment summary:
@@ -256,77 +255,47 @@ required check remains failed.
 
 ## Foundation apply design
 
-Josh merging a same-repository pull request into `main` after reviewing its
-successful sticky plan is the approval event for the exact plan digest and
-resource/action manifest attached to that pull-request revision. A `push` to
-`main` supplies the immutable main-ref OIDC subject; a no-OIDC gate then proves
-that the pushed SHA came from exactly one fresh eligible merge. No PR subject
-can assume an apply role. Automatic apply is fail-closed: a direct push,
-unauthorized rerun, missing or stale plan, changed state, changed values, a
-different action, an unavailable lock, or a failed post-apply plan stops the
-run without trying to reinterpret the approval.
+The protected `main` branch is the automatic-apply trust boundary. Pull-request
+workflows can assume only the read-only plan role. The write-capable roles
+require the immutable repository and owner IDs, Josh's actor ID, the exact
+main-ref subject and `ref` claim, and the direct
+`foundation-apply.yml@refs/heads/main` workflow identity. No pull-request OIDC
+subject can satisfy that trust policy.
 
-The pull-request binary plan is never downloaded or reused. Trusted PR planning
-stores only normal redacted text, a sanitized address/action manifest, and a
-SHA-256 digest of a canonical projection containing the exact resource and
-output changes. After merge, each AWS root creates a fresh locked saved plan on
-the ephemeral runner. Both the digest and manifest must match before that exact
-saved plan is applied. Binary plans, raw JSON, provider credentials, state, and
-the organization email input never leave the privileged job.
+A push that updates `main` runs the three AWS roots in order. Each root uses
+`tofu apply -auto-approve`, which creates and immediately applies its own fresh
+plan while honoring the state lock. A final detailed-exit-code plan must report
+no changes. The pull-request comment remains useful review information, but it
+is not an authorization artifact and no PR binary plan is uploaded or reused.
 
 | Root | Identity and state boundary | Trigger and ordering | Failure/recovery |
 |---|---|---|---|
-| `terraform/bootstrap/management-state` | Direct OIDC to `AWSFoundationManagementStateApply`; read/write only its exact state object and lock; manage only the exact foundation-state bucket and management-account S3 public-access setting. | First after an eligible merge. | Stop on mismatch or non-convergence. Local saved-plan recovery remains supported. |
+| `terraform/bootstrap/management-state` | Direct OIDC to `AWSFoundationManagementStateApply`; read/write only its exact state object and lock; manage only the exact foundation-state bucket and management-account S3 public-access setting. | First after a push updates `main`. | Stop on apply failure or non-convergence. Local saved-plan recovery remains supported. |
 | `terraform/organization` | Direct OIDC to `AWSFoundationOrganizationApply`; read/write only organization state; service-scoped organization, Identity Center, budget/SNS, and exact foundation-automation IAM resources. | Runs after management-state succeeds. The sensitive account-email map is available only in this job. | No automatic rollback. Correct configuration or state deliberately, then use a newly reviewed PR. |
 | `terraform/platform` | Direct OIDC to `AWSFoundationPlatformApply`; read/write only platform state, read only organization state, and assume only `AWSFoundationTerraformApply` in deployment/UAT/production. Member roles manage exact foundation/application IAM control-plane resources and the exact deployment state-bucket configuration, never application objects or application state contents. | Runs after organization succeeds. | Cross-account or convergence failure stops the chain. Use the documented local path for recovery. |
 | `terraform/github` | No CI apply identity. | Never applied automatically. A changed PR comment prints the manual commands. | Authenticate through the existing short-lived `gh` CLI session, make a fresh saved plan, review it, and apply it locally. |
 
 All automatic roots are deliberately ordered management-state, organization,
-then platform inside one immutable reusable workflow. A failure prevents later
-roots from starting. Non-cancelling sequence concurrency prevents two merged
-PRs from mutating foundation state simultaneously. Pull-request plans remain
-lock-free and informational, so they do not contend with an apply lock.
+then platform in the direct workflow. A failure prevents later roots from
+starting. Non-cancelling sequence concurrency prevents two main updates from
+mutating foundation state simultaneously. Pull-request plans remain lock-free
+and informational, so they do not contend with an apply lock.
 
-No GitHub Environment or GitHub App is required for AWS authentication. Apply
-trust binds the immutable main-ref subject, the separate `refs/heads/main`
-claim, Josh's actor ID, immutable repository/owner IDs, the exact caller
-workflow name, and the reusable apply workflow at a full commit SHA. The
-minimal caller passes no PR number, plan run, digest, manifest, or root. The
-pinned workflow derives those values from GitHub's API and checks out its own
-authorization/apply scripts using `job.workflow_repository` and
-`job.workflow_sha`. It checks out merged configuration separately at the
-pushed SHA.
-
-The built-in `GITHUB_TOKEN` is used only by the unprivileged gate to read merge,
-plan-comment, workflow, and artifact metadata. Only ordered apply jobs receive
-OIDC permission. A changed caller cannot obtain AWS credentials directly
-because its job lacks the trusted `job_workflow_ref`, and it cannot make the
-pinned workflow accept caller-supplied authorization data because there are no
-such inputs.
-
-That gate first verifies the current push run's original and triggering actor,
-caller path, main SHA, repository IDs, and exact pinned reusable-workflow SHA.
-It resolves the SHA's associated PR and requires exactly one closed merge to
-`main`, made by Josh within the push run's freshness window, from a branch in
-this repository. It then accepts exactly one marked comment from GitHub
-Actions' immutable bot ID. Its run link must identify the exact pull-request
-workflow ID, PR association, head SHA, original/rerun actor, and the planner at
-the same pinned commit SHA. Exactly four unexpired sanitized artifacts must be
-present. Their schemas, digests, action sequences, scopes, ordering, and count
-totals are validated before any value crosses into a privileged apply job.
+No GitHub Environment, GitHub App, PAT, GitHub API authorization gate, artifact
+download, or reusable apply workflow is required for AWS authentication. The
+workflow receives only `contents: read` and `id-token: write`; it does not need
+Actions or pull-request API permissions. The organization account-email value
+remains available only to the organization job.
 
 ### Apply bootstrap sequence
 
-1. Merge the control-plane PR containing the immutable reusable workflows and
-   independent authorizer. Existing callers and AWS trust do not reference it.
-2. Pin the planner and new apply workflow to that merge's full SHA in a separate
-   activation PR. Keep the apply subject main-only and update the AWS
-   `job_workflow_ref` conditions to the pinned apply path and SHA.
-3. Manually create, inspect, and apply the activation PR's exact organization
-   saved plan. Re-run its trusted plan after the trust update.
-4. Merge the activation PR. The main push must pass the merge/plan evidence gate
-   and converge without changes before a later harmless reviewed mutation is
-   used to prove a real apply.
+1. Open the cleanup PR containing the direct main workflow and matching AWS
+   trust policy.
+2. Manually create, inspect, and apply that branch's exact organization saved
+   plan so the existing apply roles trust the direct workflow before merge.
+3. Re-run the PR plan and require no remaining AWS trust changes.
+4. Merge the cleanup PR. Its main push runs the direct ordered workflow and must
+   converge without changes.
 
 A following security-bootstrap change moves the foundation OIDC providers,
 foundation plan/apply roles, their permission boundaries, and member foundation

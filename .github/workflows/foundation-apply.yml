@@ -6,13 +6,151 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: foundation-main-apply-sequence
+  cancel-in-progress: false
+
+env:
+  OPENTOFU_VERSION: 1.12.5
+
 jobs:
-  apply:
-    name: Apply reviewed main merge
+  apply-management-state:
+    name: Apply management state
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
     permissions:
-      actions: read
       contents: read
       id-token: write
-      pull-requests: read
-    uses: joshcazalas/aws-foundation/.github/workflows/reusable-foundation-main-apply.yml@e2ac7f640c87bae963709a844c7e9adee610f098
-    secrets: inherit
+    env:
+      APPLY_ROLE_ARN: arn:aws:iam::357964519547:role/AWSFoundationManagementStateApply
+      EXPECTED_ACCOUNT_ID: '357964519547'
+      REQUESTED_ROOT: terraform/bootstrap/management-state
+      TF_IN_AUTOMATION: 'true'
+      TF_INPUT: '0'
+    steps:
+      - name: Check out merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: ${{ env.OPENTOFU_VERSION }}
+          tofu_wrapper: false
+
+      - name: Assume management-state apply role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          action-timeout-s: 60
+          allowed-account-ids: ${{ env.EXPECTED_ACCOUNT_ID }}
+          aws-region: us-east-1
+          retry-max-attempts: 3
+          role-duration-seconds: 3600
+          role-session-name: foundation-apply-${{ github.run_id }}
+          role-to-assume: ${{ env.APPLY_ROLE_ARN }}
+          unset-current-credentials: true
+
+      - name: Verify management apply identity
+        run: |
+          set -euo pipefail
+          [[ "$(aws sts get-caller-identity --query Account --output text)" == "$EXPECTED_ACCOUNT_ID" ]]
+
+      - name: Apply management-state configuration
+        run: bash scripts/run-foundation-apply.sh "$GITHUB_WORKSPACE" "$REQUESTED_ROOT"
+
+  apply-organization:
+    name: Apply organization
+    needs: apply-management-state
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      APPLY_ROLE_ARN: arn:aws:iam::357964519547:role/AWSFoundationOrganizationApply
+      EXPECTED_ACCOUNT_ID: '357964519547'
+      REQUESTED_ROOT: terraform/organization
+      TF_IN_AUTOMATION: 'true'
+      TF_INPUT: '0'
+      TF_VAR_account_emails: ${{ secrets.TF_VAR_account_emails }}
+    steps:
+      - name: Check out merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: ${{ env.OPENTOFU_VERSION }}
+          tofu_wrapper: false
+
+      - name: Assume organization apply role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          action-timeout-s: 60
+          allowed-account-ids: ${{ env.EXPECTED_ACCOUNT_ID }}
+          aws-region: us-east-1
+          retry-max-attempts: 3
+          role-duration-seconds: 3600
+          role-session-name: foundation-apply-${{ github.run_id }}
+          role-to-assume: ${{ env.APPLY_ROLE_ARN }}
+          unset-current-credentials: true
+
+      - name: Verify management apply identity
+        run: |
+          set -euo pipefail
+          [[ "$(aws sts get-caller-identity --query Account --output text)" == "$EXPECTED_ACCOUNT_ID" ]]
+
+      - name: Apply organization configuration
+        run: bash scripts/run-foundation-apply.sh "$GITHUB_WORKSPACE" "$REQUESTED_ROOT"
+
+  apply-platform:
+    name: Apply platform
+    needs: apply-organization
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      APPLY_ROLE_ARN: arn:aws:iam::357964519547:role/AWSFoundationPlatformApply
+      EXPECTED_ACCOUNT_ID: '357964519547'
+      REQUESTED_ROOT: terraform/platform
+      TF_IN_AUTOMATION: 'true'
+      TF_INPUT: '0'
+    steps:
+      - name: Check out merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: ${{ env.OPENTOFU_VERSION }}
+          tofu_wrapper: false
+
+      - name: Assume platform apply role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          action-timeout-s: 60
+          allowed-account-ids: ${{ env.EXPECTED_ACCOUNT_ID }}
+          aws-region: us-east-1
+          retry-max-attempts: 3
+          role-duration-seconds: 3600
+          role-session-name: foundation-apply-${{ github.run_id }}
+          role-to-assume: ${{ env.APPLY_ROLE_ARN }}
+          unset-current-credentials: true
+
+      - name: Verify management apply identity
+        run: |
+          set -euo pipefail
+          [[ "$(aws sts get-caller-identity --query Account --output text)" == "$EXPECTED_ACCOUNT_ID" ]]
+
+      - name: Apply platform configuration
+        run: bash scripts/run-foundation-apply.sh "$GITHUB_WORKSPACE" "$REQUESTED_ROOT"
