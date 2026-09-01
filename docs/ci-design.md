@@ -29,6 +29,8 @@ or bootstrap apply is authorized merely by editing this document.
 - Trivy is excluded from the toolchain.
 - No agent may merge a pull request or apply a plan without Josh's explicit
   authorization for that specific action.
+- Public branch governance requires the stable aggregate check named
+  `Required pull request checks`.
 
 ## Candidates to evaluate
 
@@ -66,6 +68,7 @@ rows marked **required** are locked for the initial implementation.
 | `tflint` | **Required** | Run TFLint's recommended Terraform rules and the pinned AWS ruleset for every root. |
 | `plan` | **Required** | Produce the trusted-PR, no-lock preview described below for every applicable Terraform root. |
 | `workflow-lint` | **Required** | Run pinned `actionlint`, pinned `shellcheck`, Bash syntax checks, and plan-result parser/renderer tests. |
+| `required` | **Required** | Aggregate offline results and require trusted plans/comments only for same-repository pull requests. This is the single stable ruleset context. |
 | `lockfiles` | Candidate | Reject missing or unexpectedly changed dependency lockfiles and enforce the final version policy. |
 | `tests` | Candidate | Run native, plan-only `tofu test` suites when module invariants are added. Tests that can apply infrastructure are forbidden in PR CI. |
 | `docs` | Candidate | Regenerate module documentation with the pinned `terraform-docs` version and reject a non-empty diff once generated docs are adopted. |
@@ -111,6 +114,12 @@ AWS-backed plans may run only for branches in this repository. They must use
 the `pull_request` event and must never use `pull_request_target` to execute
 pull-request-controlled Terraform. Fork pull requests receive only offline
 checks; their plan rows state that AWS-backed planning was skipped.
+
+The final aggregate job always runs. Same-repository pull requests fail unless
+offline checks, all trusted plans, and the plan comment succeed. Fork pull
+requests fail unless offline checks succeed and both privileged jobs are
+skipped. The public `main` ruleset requires only this aggregate context, so it
+does not depend on conditionally absent reusable-workflow check names.
 
 The pinned reusable planner independently enforces this boundary before its
 OIDC-enabled job starts. It requires Josh's immutable actor ID, Josh as the

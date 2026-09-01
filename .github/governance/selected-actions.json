@@ -1,0 +1,10 @@
+{
+  "github_owned_allowed": true,
+  "verified_allowed": false,
+  "patterns_allowed": [
+    "aws-actions/configure-aws-credentials@*",
+    "joshcazalas/aws-foundation@*",
+    "opentofu/setup-opentofu@*",
+    "terraform-linters/setup-tflint@*"
+  ]
+}
