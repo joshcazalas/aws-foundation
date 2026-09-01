@@ -190,3 +190,57 @@ jobs:
             "$RUNNER_TEMP/plan-comment.md" \
             "$GITHUB_REPOSITORY" \
             "$PULL_REQUEST_NUMBER"
+
+  required:
+    name: Required pull request checks
+    if: always()
+    needs:
+      - fmt
+      - hygiene
+      - validate
+      - tflint
+      - workflow-lint
+      - plan
+      - plan-comment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Enforce required check outcomes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          TARGET_REPOSITORY: ${{ github.repository }}
+          FORMAT_RESULT: ${{ needs.fmt.result }}
+          HYGIENE_RESULT: ${{ needs.hygiene.result }}
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+          TFLINT_RESULT: ${{ needs.tflint.result }}
+          WORKFLOW_LINT_RESULT: ${{ needs.workflow-lint.result }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          PLAN_COMMENT_RESULT: ${{ needs.plan-comment.result }}
+        run: |
+          set -euo pipefail
+
+          for result in \
+            "$FORMAT_RESULT" \
+            "$HYGIENE_RESULT" \
+            "$VALIDATE_RESULT" \
+            "$TFLINT_RESULT" \
+            "$WORKFLOW_LINT_RESULT"; do
+            if [[ "$result" != "success" ]]; then
+              echo "An offline required check did not succeed." >&2
+              exit 1
+            fi
+          done
+
+          if [[ "$EVENT_NAME" == "pull_request" && "$SOURCE_REPOSITORY" == "$TARGET_REPOSITORY" ]]; then
+            if [[ "$PLAN_RESULT" != "success" || "$PLAN_COMMENT_RESULT" != "success" ]]; then
+              echo "Trusted same-repository planning did not succeed." >&2
+              exit 1
+            fi
+          elif [[ "$PLAN_RESULT" != "skipped" || "$PLAN_COMMENT_RESULT" != "skipped" ]]; then
+            echo "A fork or manual run unexpectedly reached a privileged job." >&2
+            exit 1
+          fi
+
+          echo "Required pull-request check outcomes are valid."

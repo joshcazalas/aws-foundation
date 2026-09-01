@@ -4,6 +4,13 @@ Terraform-compatible infrastructure for Josh Cazalas's AWS Organizations
 foundation. OpenTofu is the authoritative CLI, while the repository uses
 Terraform language, conventions, providers, and modules.
 
+This is a portfolio-grade reference implementation for a live personal AWS
+foundation. Public resource identifiers and account topology are intentional;
+credentials, personal contact details, state, saved plans, and sensitive inputs
+are not part of the repository. See [Security policy](SECURITY.md),
+[Contributing](CONTRIBUTING.md), and
+[Repository governance](docs/repository-governance.md).
+
 The foundation separates organization governance, deployment control, and
 application workloads:
 
@@ -131,3 +138,12 @@ this repository—four no-lock read-only plans through the trusted reusable
 workflow on `main`. Fork pull requests receive offline checks only. The sticky
 plan comment is ordered Production, UAT, Deployment, Management, then GitHub;
 it never serves as an apply artifact.
+
+One aggregate check named `Required pull request checks` is the stable branch
+governance contract. Same-repository pull requests must pass both offline and
+trusted-plan jobs; fork pull requests must pass offline jobs while the AWS and
+comment jobs remain skipped.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).

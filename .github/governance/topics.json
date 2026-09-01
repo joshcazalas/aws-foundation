@@ -1,0 +1,11 @@
+{
+  "names": [
+    "aws",
+    "aws-organizations",
+    "github-actions",
+    "infrastructure-as-code",
+    "oidc",
+    "opentofu",
+    "terraform"
+  ]
+}

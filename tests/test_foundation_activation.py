@@ -47,6 +47,23 @@ class FoundationWorkflowBoundaryTests(unittest.TestCase):
         self.assertIn("job.workflow_sha", plan)
         self.assertIn("job.workflow_repository", plan)
 
+    def test_required_check_handles_same_repository_and_fork_prs(self) -> None:
+        source = (REPOSITORY_ROOT / ".github/workflows/pr.yml").read_text(
+            encoding="utf-8"
+        )
+
+        required = source.split("  required:\n", maxsplit=1)[1]
+        self.assertIn("name: Required pull request checks", required)
+        self.assertIn("if: always()", required)
+        self.assertIn("permissions: {}", required)
+        self.assertIn("SOURCE_REPOSITORY", required)
+        self.assertIn("TARGET_REPOSITORY", required)
+        self.assertIn('"$PLAN_RESULT" != "success"', required)
+        self.assertIn('"$PLAN_RESULT" != "skipped"', required)
+        self.assertNotIn("actions/checkout", required)
+        self.assertNotIn("id-token: write", required)
+        self.assertNotIn("pull-requests: write", required)
+
 
 if __name__ == "__main__":
     unittest.main()

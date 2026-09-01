@@ -1,13 +1,3 @@
-variable "account_id" {
-  description = "Member account receiving the foundation apply role."
-  type        = string
-
-  validation {
-    condition     = can(regex("^[0-9]{12}$", var.account_id))
-    error_message = "account_id must be exactly 12 digits."
-  }
-}
-
 variable "management_apply_role_arn" {
   description = "Exact management-account platform apply role allowed to assume this role."
   type        = string
