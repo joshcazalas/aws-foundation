@@ -420,18 +420,15 @@ that bound.
 
 ## Foundation apply automation
 
-The corrected automatic apply control plane was merged at immutable commit
-`e2ac7f640c87bae963709a844c7e9adee610f098`. The separate activation PR must:
+The protected `main` branch is the automatic-apply trust boundary. The
+read-only pull-request planner remains pinned to its reviewed reusable workflow.
+The three write-capable apply roles instead trust only the direct
+`foundation-apply.yml@refs/heads/main` workflow, together with the exact
+main-ref subject, separate `ref` claim, immutable repository and owner IDs,
+workflow name, and Josh's actor ID.
 
-- pin the PR planner and main apply caller to that exact commit;
-- retain the apply OIDC subject ending in `:ref:refs/heads/main`;
-- pin each apply role's `job_workflow_ref` to
-  `reusable-foundation-main-apply.yml` at that commit; and
-- replace `pull_request: closed` with a minimal `push`-to-`main` caller.
-
-The activation PR's first AWS-backed plans fail closed because the deployed
-plan role still trusts the old `@refs/heads/main` workflow identity. From the
-checked-out activation branch, create and inspect the one-time trust plan:
+Before merging the cleanup PR, update that trust once from the checked-out
+cleanup branch. Create and inspect a saved organization plan:
 
 ```bash
 aws sso login --profile management
@@ -440,12 +437,12 @@ aws sts get-caller-identity --profile management
 AWS_PROFILE=management tofu -chdir=terraform/organization init \
   -backend-config=backend.s3.tfbackend -reconfigure
 AWS_PROFILE=management tofu -chdir=terraform/organization plan \
-  -out=foundation-main-apply-activation.tfplan
+  -out=foundation-main-apply-cleanup.tfplan
 AWS_PROFILE=management tofu -chdir=terraform/organization show \
-  foundation-main-apply-activation.tfplan
+  foundation-main-apply-cleanup.tfplan
 
 tofu -chdir=terraform/organization show -json \
-  foundation-main-apply-activation.tfplan |
+  foundation-main-apply-cleanup.tfplan |
   jq -r '
     .resource_changes[]
     | select(.change.actions != ["no-op"])
@@ -454,29 +451,27 @@ tofu -chdir=terraform/organization show -json \
   '
 ```
 
-The plan must update only the OIDC trust policies for the foundation plan role
-and three root-specific apply roles. It must retain the exact main-ref apply
-subject and must not change permissions policies. Stop on any other mutation.
-After Josh explicitly approves that exact saved plan, apply it by filename:
+The plan must update only the OIDC trust policies for the three root-specific
+apply roles. Each must replace the pinned reusable-workflow
+`job_workflow_ref` condition with the direct main-branch `workflow_ref`
+condition. It must retain the exact main-ref apply subject and must not change
+permissions policies. Stop on any other mutation. After Josh explicitly
+approves that exact saved plan, apply it by filename:
 
 ```bash
 AWS_PROFILE=management tofu -chdir=terraform/organization apply \
-  foundation-main-apply-activation.tfplan
+  foundation-main-apply-cleanup.tfplan
 ```
 
-Re-run the activation PR workflow after the trust update. Review the new
+Re-run the cleanup PR workflow after the trust update. Review the new
 successful sticky plan, which must show no remaining infrastructure changes,
-before merging the activation PR.
+before merging the cleanup PR.
 
-The pinned reusable workflow resolves and validates the pushed merge, merger,
-original actor, rerun actor, associated PR, reviewed plan, and artifacts without
-caller-supplied authorization inputs. Its automatic sequence is
-management-state, organization, then platform. Each root makes a fresh locked
-saved plan, verifies its canonical SHA-256 digest and address/action manifest
-against the successful plan reviewed on the merged PR, applies that exact
-fresh plan, and requires a final no-change plan. A direct push, fork, mismatch,
-unavailable lock, apply failure, or convergence failure stops the sequence. The
-jobs never reuse or download a pull-request binary plan.
+The main workflow runs management-state, organization, then platform. Each root
+runs `tofu apply -auto-approve` against current configuration and state, then
+requires a final no-change plan. A lock failure, apply failure, or convergence
+failure stops the sequence. The workflow never reuses or downloads a
+pull-request binary plan and does not call the GitHub API.
 
 For local recovery, do not reuse a CI or pull-request plan. Create a new saved
 plan for only the failed root, inspect it, obtain Josh's explicit approval for
@@ -499,9 +494,8 @@ saved plans, or Terraform state.
 
 ## Apply authorization
 
-A successful plan alone is not permission to apply it. For the activated
-foundation automation, Josh merging a same-repository PR into `main` after
-reviewing its successful current plan authorizes only the exact digest and
-resource/action manifest for that revision. Bootstrap and local recovery still
-require Josh's explicit approval of the exact saved plan. No pull request may
-be merged by an agent.
+A successful pull-request plan alone is not permission to apply it. For
+foundation automation, protected `main` is the authorization boundary: a push
+to `main` runs the direct workflow against current configuration and state.
+Bootstrap and local recovery still require Josh's explicit approval of the
+exact saved plan. No pull request may be merged by an agent.

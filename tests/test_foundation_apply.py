@@ -1,5 +1,5 @@
-import hashlib
-import json
+from __future__ import annotations
+
 import os
 import subprocess
 import tempfile
@@ -9,22 +9,18 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 APPLY_SCRIPT = REPOSITORY_ROOT / "scripts" / "run-foundation-apply.sh"
-TRUSTED_WORKFLOW_SHA = "e2ac7f640c87bae963709a844c7e9adee610f098"
 
 
 class FoundationApplyPolicyTests(unittest.TestCase):
     def test_management_apply_trust_is_main_only_and_scoped(self) -> None:
-        source = (REPOSITORY_ROOT / "terraform/organization/foundation-apply.tf").read_text(
-            encoding="utf-8"
-        )
+        source = (
+            REPOSITORY_ROOT / "terraform/organization/foundation-apply.tf"
+        ).read_text(encoding="utf-8")
 
         self.assertIn(
             "joshcazalas/aws-foundation/.github/workflows/"
-            "reusable-foundation-main-apply.yml@" + TRUSTED_WORKFLOW_SHA,
+            "foundation-apply.yml@refs/heads/main",
             source,
-        )
-        self.assertFalse(
-            (REPOSITORY_ROOT / ".github/workflows/reusable-foundation-apply.yml").exists()
         )
         self.assertEqual(
             source.count(
@@ -32,7 +28,6 @@ class FoundationApplyPolicyTests(unittest.TestCase):
             ),
             3,
         )
-        self.assertNotIn("foundation_apply_oidc_subject", source)
         self.assertNotIn(
             'oidc_subjects           = ["${local.foundation_ci_repository.subject_base}:pull_request"]',
             source,
@@ -40,14 +35,9 @@ class FoundationApplyPolicyTests(unittest.TestCase):
         self.assertIn("token.actions.githubusercontent.com:actor_id", source)
         self.assertIn("token.actions.githubusercontent.com:repository_id", source)
         self.assertIn("token.actions.githubusercontent.com:repository_owner_id", source)
-        self.assertIn("token.actions.githubusercontent.com:job_workflow_ref", source)
+        self.assertIn("token.actions.githubusercontent.com:workflow_ref", source)
         self.assertIn("token.actions.githubusercontent.com:workflow", source)
-        self.assertIn(
-            "reusable-foundation-plan.yml@" + TRUSTED_WORKFLOW_SHA,
-            (REPOSITORY_ROOT / "terraform/organization/variables.tf").read_text(
-                encoding="utf-8"
-            ),
-        )
+        self.assertNotIn("token.actions.githubusercontent.com:job_workflow_ref", source)
         self.assertIn('management_state = "AWSFoundationManagementStateApply"', source)
         self.assertIn('organization     = "AWSFoundationOrganizationApply"', source)
         self.assertIn('platform         = "AWSFoundationPlatformApply"', source)
@@ -55,31 +45,22 @@ class FoundationApplyPolicyTests(unittest.TestCase):
         self.assertNotIn('"s3:*"', source)
         self.assertNotIn('"iam:*"', source)
         self.assertNotIn('"organizations:*"', source)
-        self.assertNotIn('"budgets:CreateBudget"', source)
-        self.assertNotIn('"budgets:DeleteBudget"', source)
-        self.assertNotIn('"s3:DeleteBucketTagging"', source)
-        self.assertNotIn('"s3:DeleteEncryptionConfiguration"', source)
-        self.assertIn('"budgets:ModifyBudget"', source)
-        self.assertIn('"aws-portal:ModifyBilling"', source)
-        self.assertIn('"sso:DescribeAccountAssignmentCreationStatus"', source)
-        self.assertIn('"sso:DescribePermissionSetProvisioningStatus"', source)
 
     def test_apply_state_permissions_are_root_specific(self) -> None:
-        source = (REPOSITORY_ROOT / "terraform/organization/foundation-apply.tf").read_text(
-            encoding="utf-8"
-        )
+        source = (
+            REPOSITORY_ROOT / "terraform/organization/foundation-apply.tf"
+        ).read_text(encoding="utf-8")
 
         self.assertIn('"aws-foundation/platform/terraform.tfstate"', source)
         self.assertIn('"aws-foundation/organization/terraform.tfstate"', source)
         self.assertIn('"aws-foundation/management-state/terraform.tfstate"', source)
         self.assertNotIn("aws-foundation/github/terraform.tfstate", source)
         self.assertNotIn("joshcazalas-deployment-tfstate", source)
-        self.assertIn('resources = ["${local.foundation_state_bucket_arn}/${config.key}"]', source)
-        self.assertIn('resources = ["${local.foundation_state_bucket_arn}/${config.key}.tflock"]', source)
 
     def test_member_apply_roles_manage_control_plane_only(self) -> None:
         module_source = (
-            REPOSITORY_ROOT / "terraform/modules/foundation-account-apply-role/main.tf"
+            REPOSITORY_ROOT
+            / "terraform/modules/foundation-account-apply-role/main.tf"
         ).read_text(encoding="utf-8")
         platform_source = (
             REPOSITORY_ROOT / "terraform/platform/foundation-ci.tf"
@@ -97,58 +78,51 @@ class FoundationApplyPolicyTests(unittest.TestCase):
 
 
 class FoundationApplyWorkflowTests(unittest.TestCase):
-    def test_immutable_reusable_workflow_owns_authorization_and_apply_order(self) -> None:
+    def test_direct_main_workflow_owns_apply_order(self) -> None:
         source = (
-            REPOSITORY_ROOT
-            / ".github/workflows/reusable-foundation-main-apply.yml"
+            REPOSITORY_ROOT / ".github/workflows/foundation-apply.yml"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("workflow_call:", source)
+        self.assertIn("push:", source)
+        self.assertIn("branches: [main]", source)
         self.assertNotIn("pull_request:", source)
-        self.assertNotIn("push:", source)
         self.assertNotIn("workflow_dispatch:", source)
         self.assertIn("cancel-in-progress: false", source)
-        self.assertIn("authorize-foundation-apply.py", source)
-        self.assertIn("job.workflow_repository", source)
-        self.assertIn("job.workflow_sha", source)
-        self.assertIn("prepare-foundation-apply.py", source)
-        self.assertIn("needs: [reviewed-plan, apply-management-state]", source)
-        self.assertIn("needs: [reviewed-plan, apply-organization]", source)
+        self.assertIn("needs: apply-management-state", source)
+        self.assertIn("needs: apply-organization", source)
         self.assertIn("AWSFoundationManagementStateApply", source)
         self.assertIn("AWSFoundationOrganizationApply", source)
         self.assertIn("AWSFoundationPlatformApply", source)
-        self.assertIn("contents: read", source)
-        self.assertIn("id-token: write", source)
+        self.assertEqual(source.count("id-token: write"), 3)
         self.assertNotIn("terraform/github", source)
-        self.assertNotIn("upload-artifact", source)
+        self.assertNotIn("actions: read", source)
+        self.assertNotIn("pull-requests: read", source)
+        self.assertNotIn("authorize-foundation-apply", source)
+        self.assertNotIn("download-artifact", source)
+        self.assertFalse(
+            (
+                REPOSITORY_ROOT
+                / ".github/workflows/reusable-foundation-main-apply.yml"
+            ).exists()
+        )
 
-        gate = source.split("  apply-management-state:", maxsplit=1)[0]
-        self.assertIn("actions: read", gate)
-        self.assertIn("pull-requests: read", gate)
-        self.assertNotIn("id-token: write", gate)
-        self.assertNotIn("secrets.TF_VAR_account_emails", gate)
-
-    def test_apply_script_uses_fresh_locked_plan_and_convergence_check(self) -> None:
+    def test_apply_script_uses_automatic_apply_and_convergence_check(self) -> None:
         source = APPLY_SCRIPT.read_text(encoding="utf-8")
 
+        self.assertIn("apply \\", source)
+        self.assertIn("-auto-approve", source)
         self.assertIn("-lock-timeout=10m", source)
-        self.assertIn("-detailed-exitcode", source)
-        self.assertIn('"$plan_file"', source)
         self.assertIn("AWSFoundationTerraformApply", source)
-        self.assertIn("does not match the exact resource/action manifest", source)
         self.assertIn("Post-apply convergence failed", source)
+        self.assertNotIn("-out=", source)
         self.assertNotIn("terraform/github", source)
-        self.assertNotIn("-lock=false", source)
+        self.assertNotIn("REVIEWED_PLAN", source)
+        self.assertNotIn("EXPECTED_CHANGES", source)
 
 
 class FoundationApplyRunnerTests(unittest.TestCase):
     def run_apply(
-        self,
-        plan: dict[str, object],
-        expected_changes: list[dict[str, object]],
-        *,
-        plan_exit_code: int,
-        plan_digest: str | None = None,
+        self, *, post_plan_exit_code: int = 0
     ) -> tuple[subprocess.CompletedProcess[str], str, str]:
         with tempfile.TemporaryDirectory() as temporary_directory:
             temporary_path = Path(temporary_directory)
@@ -165,7 +139,7 @@ set -euo pipefail
 command_name=""
 for argument in "$@"; do
   case "$argument" in
-    init|plan|show|apply)
+    init|plan|apply)
       command_name="$argument"
       break
       ;;
@@ -174,29 +148,14 @@ done
 
 case "$command_name" in
   init)
-    exit 0
-    ;;
-  plan)
-    count="$(cat "$FAKE_PLAN_COUNT")"
-    if [[ "$count" == "0" ]]; then
-      printf '1\n' >"$FAKE_PLAN_COUNT"
-      for argument in "$@"; do
-        case "$argument" in
-          -out=*)
-            : >"${argument#-out=}"
-            ;;
-        esac
-      done
-      exit "$FAKE_PLAN_EXIT_CODE"
-    fi
-    printf '2\n' >"$FAKE_PLAN_COUNT"
-    exit 0
-    ;;
-  show)
-    cat "$FAKE_PLAN_JSON"
+    printf 'init\n' >>"$FAKE_CALLS"
     ;;
   apply)
     printf 'apply\n' >>"$FAKE_CALLS"
+    ;;
+  plan)
+    printf 'plan\n' >>"$FAKE_CALLS"
+    exit "$FAKE_POST_PLAN_EXIT_CODE"
     ;;
   *)
     exit 64
@@ -207,40 +166,16 @@ esac
             )
             fake_tofu.chmod(0o755)
 
-            plan_path = temporary_path / "plan.json"
-            plan_path.write_text(json.dumps(plan), encoding="utf-8")
-            projection = subprocess.run(
-                [
-                    "jq",
-                    "-cS",
-                    "-f",
-                    str(REPOSITORY_ROOT / "scripts/plan-review-projection.jq"),
-                    str(plan_path),
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout
-            computed_plan_digest = hashlib.sha256(projection.encode()).hexdigest()
-            plan_count = temporary_path / "plan-count"
-            plan_count.write_text("0\n", encoding="utf-8")
             calls = temporary_path / "calls"
             calls.write_text("", encoding="utf-8")
             summary = temporary_path / "summary"
-
             environment = os.environ | {
-                "EXPECTED_CHANGES": json.dumps(expected_changes),
                 "FAKE_CALLS": str(calls),
-                "FAKE_PLAN_COUNT": str(plan_count),
-                "FAKE_PLAN_EXIT_CODE": str(plan_exit_code),
-                "FAKE_PLAN_JSON": str(plan_path),
+                "FAKE_POST_PLAN_EXIT_CODE": str(post_plan_exit_code),
                 "GITHUB_ACTOR": "joshcazalas",
                 "GITHUB_SHA": "a" * 40,
                 "GITHUB_STEP_SUMMARY": str(summary),
                 "PATH": f"{fake_bin}:{os.environ['PATH']}",
-                "PULL_REQUEST_NUMBER": "42",
-                "REVIEWED_PLAN_RUN_ID": "1234",
-                "REVIEWED_PLAN_DIGEST": plan_digest or computed_plan_digest,
             }
             completed = subprocess.run(
                 ["bash", str(APPLY_SCRIPT), str(source), "terraform/platform"],
@@ -256,75 +191,21 @@ esac
                 summary.read_text(encoding="utf-8") if summary.exists() else "",
             )
 
-    def test_matching_manifest_applies_and_converges(self) -> None:
-        address = "module.workloads_uat.module.deploy_role.aws_iam_role_policy.inline[0]"
-        plan = {
-            "resource_changes": [
-                {"address": address, "change": {"actions": ["update"]}},
-            ]
-        }
-        expected = [{"address": address, "actions": ["update"], "scope": "uat"}]
-
-        completed, calls, summary = self.run_apply(plan, expected, plan_exit_code=2)
+    def test_apply_runs_once_and_proves_convergence(self) -> None:
+        completed, calls, summary = self.run_apply()
 
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertEqual(calls, "apply\n")
-        self.assertIn("Applied exact saved plan", summary)
+        self.assertEqual(calls, "init\napply\nplan\n")
+        self.assertIn("Apply | Completed", summary)
         self.assertIn("Post-apply plan | No changes", summary)
 
-    def test_manifest_mismatch_stops_before_apply(self) -> None:
-        plan = {
-            "resource_changes": [
-                {
-                    "address": "module.workloads_production.module.plan_role.aws_iam_role.this",
-                    "change": {"actions": ["update"]},
-                },
-            ]
-        }
+    def test_nonconvergent_apply_fails(self) -> None:
+        completed, calls, summary = self.run_apply(post_plan_exit_code=2)
 
-        completed, calls, _ = self.run_apply(plan, [], plan_exit_code=2)
-
-        self.assertNotEqual(completed.returncode, 0)
-        self.assertEqual(calls, "")
-        self.assertIn("does not match the exact resource/action manifest", completed.stderr)
-
-    def test_digest_mismatch_stops_before_apply(self) -> None:
-        plan = {
-            "resource_changes": [
-                {
-                    "address": "module.workloads_uat.module.plan_role.aws_iam_role.this",
-                    "change": {"actions": ["update"]},
-                },
-            ]
-        }
-        expected = [
-            {
-                "address": "module.workloads_uat.module.plan_role.aws_iam_role.this",
-                "actions": ["update"],
-                "scope": "uat",
-            }
-        ]
-
-        completed, calls, _ = self.run_apply(
-            plan,
-            expected,
-            plan_exit_code=2,
-            plan_digest="0" * 64,
-        )
-
-        self.assertNotEqual(completed.returncode, 0)
-        self.assertEqual(calls, "")
-        self.assertIn("does not match the reviewed plan digest", completed.stderr)
-
-    def test_no_change_manifest_skips_apply_and_proves_convergence(self) -> None:
-        completed, calls, summary = self.run_apply(
-            {"resource_changes": []}, [], plan_exit_code=0
-        )
-
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertEqual(calls, "")
-        self.assertIn("Apply | No changes", summary)
-        self.assertIn("Post-apply plan | No changes", summary)
+        self.assertEqual(completed.returncode, 2)
+        self.assertEqual(calls, "init\napply\nplan\n")
+        self.assertEqual(summary, "")
+        self.assertIn("Post-apply convergence failed", completed.stderr)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 locals {
   foundation_apply_caller_workflow_name = "Apply merged foundation configuration"
-  foundation_apply_job_workflow_ref     = "joshcazalas/aws-foundation/.github/workflows/reusable-foundation-main-apply.yml@e2ac7f640c87bae963709a844c7e9adee610f098"
+  foundation_apply_workflow_ref         = "joshcazalas/aws-foundation/.github/workflows/foundation-apply.yml@refs/heads/main"
 
   foundation_apply_trust_conditions = [
     {
@@ -10,8 +10,8 @@ locals {
     },
     {
       test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:job_workflow_ref"
-      values   = [local.foundation_apply_job_workflow_ref]
+      variable = "token.actions.githubusercontent.com:workflow_ref"
+      values   = [local.foundation_apply_workflow_ref]
     },
     {
       test     = "StringEquals"

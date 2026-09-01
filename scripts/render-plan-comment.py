@@ -202,7 +202,7 @@ def render_comment(results_directory: Path, repository: str, run_id: str) -> str
             MARKER,
             "## Terraform Plan - post-merge preview",
             "",
-            "What `terraform apply` will do when this PR merges.",
+            "Expected changes after merge. The main workflow plans again against current state.",
             "",
             "| Env | Plan |",
             "|---|---|",
