@@ -119,8 +119,8 @@ are always planning-only; only the direct workflow running from protected
 The production-grade pull-request checks and sticky plan-comment contract are
 recorded in [`docs/ci-design.md`](docs/ci-design.md). Their two-phase trust
 sequence is documented in [`docs/ci-bootstrap.md`](docs/ci-bootstrap.md).
-AWS-root applies use a main-only OIDC subject and exact direct workflow
-identity. The GitHub-provider root remains manual because it requires the
+AWS-root applies use a main-only OIDC subject and direct workflow name. The
+GitHub-provider root remains manual because it requires the
 operator's short-lived GitHub CLI session. See
 [`docs/ci-design.md`](docs/ci-design.md) for the root-by-root policy and
 bootstrap sequence.

@@ -1,17 +1,11 @@
 locals {
   foundation_apply_caller_workflow_name = "Apply merged foundation configuration"
-  foundation_apply_workflow_ref         = "joshcazalas/aws-foundation/.github/workflows/foundation-apply.yml@refs/heads/main"
 
   foundation_apply_trust_conditions = [
     {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:actor_id"
       values   = [local.foundation_ci_repository.owner_id]
-    },
-    {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:workflow_ref"
-      values   = [local.foundation_apply_workflow_ref]
     },
     {
       test     = "StringEquals"

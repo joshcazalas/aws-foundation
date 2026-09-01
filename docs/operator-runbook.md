@@ -423,12 +423,13 @@ that bound.
 The protected `main` branch is the automatic-apply trust boundary. The
 read-only pull-request planner remains pinned to its reviewed reusable workflow.
 The three write-capable apply roles instead trust only the direct
-`foundation-apply.yml@refs/heads/main` workflow, together with the exact
-main-ref subject, separate `ref` claim, immutable repository and owner IDs,
-workflow name, and Josh's actor ID.
+workflow name, together with the exact main-ref subject, separate `ref` claim,
+immutable repository and owner IDs, and Josh's actor ID. AWS IAM supports the
+GitHub `workflow` claim but does not expose `workflow_ref` as a trust-policy
+condition key.
 
-Before merging the cleanup PR, update that trust once from the checked-out
-cleanup branch. Create and inspect a saved organization plan:
+Before merging the follow-up PR, remove the unsupported condition from the
+checked-out follow-up branch. Create and inspect a new saved organization plan:
 
 ```bash
 aws sso login --profile management
@@ -437,12 +438,12 @@ aws sts get-caller-identity --profile management
 AWS_PROFILE=management tofu -chdir=terraform/organization init \
   -backend-config=backend.s3.tfbackend -reconfigure
 AWS_PROFILE=management tofu -chdir=terraform/organization plan \
-  -out=foundation-main-apply-cleanup.tfplan
+  -out=foundation-main-apply-followup.tfplan
 AWS_PROFILE=management tofu -chdir=terraform/organization show \
-  foundation-main-apply-cleanup.tfplan
+  foundation-main-apply-followup.tfplan
 
 tofu -chdir=terraform/organization show -json \
-  foundation-main-apply-cleanup.tfplan |
+  foundation-main-apply-followup.tfplan |
   jq -r '
     .resource_changes[]
     | select(.change.actions != ["no-op"])
@@ -452,20 +453,20 @@ tofu -chdir=terraform/organization show -json \
 ```
 
 The plan must update only the OIDC trust policies for the three root-specific
-apply roles. Each must replace the pinned reusable-workflow
-`job_workflow_ref` condition with the direct main-branch `workflow_ref`
-condition. It must retain the exact main-ref apply subject and must not change
-permissions policies. Stop on any other mutation. After Josh explicitly
-approves that exact saved plan, apply it by filename:
+apply roles. Each must remove the unsupported `workflow_ref` condition while
+retaining the exact main-ref subject, `ref`, workflow name, actor ID, and
+immutable repository/owner IDs. It must not change permissions policies. Stop
+on any other mutation. After Josh explicitly approves that exact saved plan,
+apply it by filename:
 
 ```bash
 AWS_PROFILE=management tofu -chdir=terraform/organization apply \
-  foundation-main-apply-cleanup.tfplan
+  foundation-main-apply-followup.tfplan
 ```
 
-Re-run the cleanup PR workflow after the trust update. Review the new
+Re-run the follow-up PR workflow after the trust update. Review the new
 successful sticky plan, which must show no remaining infrastructure changes,
-before merging the cleanup PR.
+before merging the follow-up PR.
 
 The main workflow runs management-state, organization, then platform. Each root
 runs `tofu apply -auto-approve` against current configuration and state, then
