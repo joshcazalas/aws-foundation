@@ -1,0 +1,52 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    assignees:
+      - joshcazalas
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    ignore:
+      # This immutable reference is part of the foundation-plan trust bootstrap.
+      # Update it only in a maintainer-authored, AWS-backed plan pull request.
+      - dependency-name: joshcazalas/aws-foundation
+
+  - package-ecosystem: opentofu
+    directories:
+      - /terraform/bootstrap/management-state
+      - /terraform/github
+      - /terraform/modules/foundation-account-apply-role
+      - /terraform/modules/foundation-account-plan-role
+      - /terraform/modules/github-environment-roles
+      - /terraform/modules/workload-execution-baseline
+      - /terraform/organization
+      - /terraform/platform
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    assignees:
+      - joshcazalas
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      opentofu:
+        patterns:
+          - "*"
+
+  - package-ecosystem: nix
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    assignees:
+      - joshcazalas
+    commit-message:
+      prefix: "chore(deps)"

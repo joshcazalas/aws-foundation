@@ -52,14 +52,21 @@ class FoundationWorkflowBoundaryTests(unittest.TestCase):
             encoding="utf-8"
         )
 
+        plan = source.split("  plan:\n", maxsplit=1)[1].split(
+            "  plan-comment:\n", maxsplit=1
+        )[0]
         required = source.split("  required:\n", maxsplit=1)[1]
+        self.assertIn("github.actor_id == '73436834'", plan)
         self.assertIn("name: Required pull request checks", required)
         self.assertIn("if: always()", required)
         self.assertIn("permissions: {}", required)
+        self.assertIn("EXPECTED_ACTOR_ID", required)
         self.assertIn("SOURCE_REPOSITORY", required)
         self.assertIn("TARGET_REPOSITORY", required)
+        self.assertIn("TRIGGER_ACTOR_ID", required)
         self.assertIn('"$PLAN_RESULT" != "success"', required)
         self.assertIn('"$PLAN_RESULT" != "skipped"', required)
+        self.assertIn("Automation-authored pull requests", required)
         self.assertNotIn("actions/checkout", required)
         self.assertNotIn("id-token: write", required)
         self.assertNotIn("pull-requests: write", required)

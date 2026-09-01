@@ -9,7 +9,8 @@ or bootstrap apply is authorized merely by editing this document.
 - Pull-request checks run independently and in parallel wherever their inputs
   do not depend on one another.
 - Every pull request runs recursive formatting checks, validation for every
-  runnable root, TFLint with the AWS plugin, and the trusted plan preview.
+  runnable root, and TFLint with the AWS plugin. Eligible Josh-triggered pull
+  requests also run the trusted plan preview.
 - The plan preview is published as the sticky, production-first comment defined
   in this document, including per-root collapsed detail and a CI-run link.
 - OpenTofu is the authoritative state engine. Terraform-compatible source lives
@@ -31,6 +32,9 @@ or bootstrap apply is authorized merely by editing this document.
   authorization for that specific action.
 - Public branch governance requires the stable aggregate check named
   `Required pull request checks`.
+- Dependabot is proposal-only automation. Bot-authored pull requests receive no
+  AWS-backed plan, secret, approval, merge, or apply capability and must be
+  promoted unchanged to a maintainer-owned branch before trusted planning.
 
 ## Candidates to evaluate
 
@@ -46,12 +50,10 @@ required yet:
 - GitHub Actions security linting with `zizmor`;
 - secret detection beyond GitHub's native secret scanning and push protection,
   such as Gitleaks;
-- dependency review plus Dependabot or Renovate for provider, module, Action,
-  Nix, and tool updates;
-- scheduled drift-detection plans that never apply changes;
+- dependency review beyond GitHub's native public-repository support;
 - cost-change reporting, such as Infracost, if its external service and data
   handling are acceptable; and
-- OpenSSF Scorecard if the repository becomes public.
+- OpenSSF Scorecard.
 
 Trivy is not a candidate. Standalone tfsec is also not preferred because its
 development path was folded into Trivy.
@@ -68,17 +70,19 @@ rows marked **required** are locked for the initial implementation.
 | `tflint` | **Required** | Run TFLint's recommended Terraform rules and the pinned AWS ruleset for every root. |
 | `plan` | **Required** | Produce the trusted-PR, no-lock preview described below for every applicable Terraform root. |
 | `workflow-lint` | **Required** | Run pinned `actionlint`, pinned `shellcheck`, Bash syntax checks, and plan-result parser/renderer tests. |
-| `required` | **Required** | Aggregate offline results and require trusted plans/comments only for same-repository pull requests. This is the single stable ruleset context. |
+| `required` | **Required** | Aggregate offline results, require trusted plans/comments only for Josh-triggered same-repository pull requests, and reject automation-authored proposals until promoted. This is the single stable ruleset context. |
 | `lockfiles` | Candidate | Reject missing or unexpectedly changed dependency lockfiles and enforce the final version policy. |
 | `tests` | Candidate | Run native, plan-only `tofu test` suites when module invariants are added. Tests that can apply infrastructure are forbidden in PR CI. |
 | `docs` | Candidate | Regenerate module documentation with the pinned `terraform-docs` version and reject a non-empty diff once generated docs are adopted. |
 | `security-policy` | Candidate | Scan Terraform source and, where useful, sanitized plan JSON with a separately approved and pinned policy engine. Checkov and OPA/Conftest remain under review. |
 
-GitHub's native secret scanning and push protection should be enabled when the
-repository visibility and GitHub plan support them. CI must also reject tracked
-state, saved plans, local variable files, credentials, and personal contact
-data. Dependency update automation and dependency review should be evaluated
-when Actions are implemented.
+GitHub's native secret scanning and push protection are enabled. CI also rejects
+tracked state, saved plans, local variable files, credentials, and personal
+contact data. Dependabot provides monthly grouped version proposals for GitHub
+Actions, OpenTofu, and the public Nix flake; its operating and incident-response
+procedure is documented in `docs/dependency-maintenance.md`. GitHub's native
+dependency graph and pull-request dependency review remain informational rather
+than adding another required Action.
 
 ## Local tooling inventory
 
@@ -110,16 +114,19 @@ Manager preemptively.
 
 ## Plan trust boundary
 
-AWS-backed plans may run only for branches in this repository. They must use
-the `pull_request` event and must never use `pull_request_target` to execute
-pull-request-controlled Terraform. Fork pull requests receive only offline
-checks; their plan rows state that AWS-backed planning was skipped.
+AWS-backed plans may run only for Josh-triggered branches in this repository.
+They must use the `pull_request` event and must never use `pull_request_target`
+to execute pull-request-controlled Terraform. Fork and automation-authored pull
+requests receive only offline checks; their plan rows remain skipped.
 
-The final aggregate job always runs. Same-repository pull requests fail unless
-offline checks, all trusted plans, and the plan comment succeed. Fork pull
-requests fail unless offline checks succeed and both privileged jobs are
-skipped. The public `main` ruleset requires only this aggregate context, so it
-does not depend on conditionally absent reusable-workflow check names.
+The final aggregate job always runs. Josh-triggered same-repository pull
+requests fail unless offline checks, all trusted plans, and the plan comment
+succeed. Automation-authored same-repository pull requests fail after proving
+both privileged jobs were skipped; they must be promoted to a maintainer-owned
+branch. Fork pull requests pass when offline checks succeed and both privileged
+jobs are skipped. The public `main` ruleset requires only this aggregate
+context, so it does not depend on conditionally absent reusable-workflow check
+names.
 
 The pinned reusable planner independently enforces this boundary before its
 OIDC-enabled job starts. It requires Josh's immutable actor ID, Josh as the
@@ -326,6 +333,8 @@ for organization, IAM, or state infrastructure; failures are forward-fixed.
 - [TFLint configuration](https://github.com/terraform-linters/tflint/blob/master/docs/user-guide/config.md)
 - [TFLint AWS ruleset](https://github.com/terraform-linters/tflint-ruleset-aws)
 - [GitHub Actions secure use](https://docs.github.com/en/actions/reference/security/secure-use)
+- [Dependabot version updates](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-version-updates)
+- [Dependabot-triggered Actions restrictions](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-on-actions)
 - [AWS IAM OIDC condition keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_iam-condition-keys.html#condition-keys-wif)
 - [Checkov project](https://github.com/bridgecrewio/checkov)
 - [Conftest project](https://github.com/open-policy-agent/conftest)

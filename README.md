@@ -125,6 +125,8 @@ are always planning-only; only the direct workflow running from protected
 The production-grade pull-request checks and sticky plan-comment contract are
 recorded in [`docs/ci-design.md`](docs/ci-design.md). Their two-phase trust
 sequence is documented in [`docs/ci-bootstrap.md`](docs/ci-bootstrap.md).
+Monthly dependency proposals and their maintainer-promotion workflow are
+documented in [`docs/dependency-maintenance.md`](docs/dependency-maintenance.md).
 AWS-root applies use a main-only OIDC subject and direct workflow name. The
 GitHub-provider root remains manual because it requires the
 operator's short-lived GitHub CLI session. See
@@ -132,16 +134,19 @@ operator's short-lived GitHub CLI session. See
 bootstrap sequence.
 
 Pull-request CI runs formatting, hygiene, per-root validation and TFLint,
-workflow/script linting, tested plan-result rendering, and—only for branches in
-this repository—four no-lock read-only plans through the trusted reusable
-workflow on `main`. Fork pull requests receive offline checks only. The sticky
-plan comment is ordered Production, UAT, Deployment, Management, then GitHub;
-it never serves as an apply artifact.
+workflow/script linting, tested plan-result rendering, and—only for
+Josh-triggered branches in this repository—four no-lock read-only plans through
+the trusted reusable workflow on `main`. Fork and automation-authored pull
+requests receive offline checks only. Dependabot proposals must be promoted to
+a maintainer-owned branch before the required check and trusted plans can pass.
+The sticky plan comment is ordered Production, UAT, Deployment, Management,
+then GitHub; it never serves as an apply artifact.
 
 One aggregate check named `Required pull request checks` is the stable branch
-governance contract. Same-repository pull requests must pass both offline and
-trusted-plan jobs; fork pull requests must pass offline jobs while the AWS and
-comment jobs remain skipped.
+governance contract. Josh-triggered same-repository pull requests must pass both
+offline and trusted-plan jobs; fork pull requests must pass offline jobs while
+the AWS and comment jobs remain skipped. Automation-authored same-repository
+proposals remain unmergeable until promoted.
 
 ## License
 

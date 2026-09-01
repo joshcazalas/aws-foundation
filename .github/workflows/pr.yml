@@ -117,7 +117,10 @@ jobs:
 
   plan:
     name: Trusted plan (${{ matrix.root }})
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.actor_id == '73436834' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     strategy:
       fail-fast: false
       matrix:
@@ -136,7 +139,11 @@ jobs:
 
   plan-comment:
     name: Terraform plan comment
-    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.actor_id == '73436834' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -209,7 +216,9 @@ jobs:
       - name: Enforce required check outcomes
         env:
           EVENT_NAME: ${{ github.event_name }}
+          EXPECTED_ACTOR_ID: '73436834'
           SOURCE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          TRIGGER_ACTOR_ID: ${{ github.actor_id }}
           TARGET_REPOSITORY: ${{ github.repository }}
           FORMAT_RESULT: ${{ needs.fmt.result }}
           HYGIENE_RESULT: ${{ needs.hygiene.result }}
@@ -233,11 +242,18 @@ jobs:
             fi
           done
 
-          if [[ "$EVENT_NAME" == "pull_request" && "$SOURCE_REPOSITORY" == "$TARGET_REPOSITORY" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" && "$SOURCE_REPOSITORY" == "$TARGET_REPOSITORY" && "$TRIGGER_ACTOR_ID" == "$EXPECTED_ACTOR_ID" ]]; then
             if [[ "$PLAN_RESULT" != "success" || "$PLAN_COMMENT_RESULT" != "success" ]]; then
-              echo "Trusted same-repository planning did not succeed." >&2
+              echo "Trusted maintainer planning did not succeed." >&2
               exit 1
             fi
+          elif [[ "$EVENT_NAME" == "pull_request" && "$SOURCE_REPOSITORY" == "$TARGET_REPOSITORY" ]]; then
+            if [[ "$PLAN_RESULT" != "skipped" || "$PLAN_COMMENT_RESULT" != "skipped" ]]; then
+              echo "An automation-authored pull request unexpectedly reached a privileged job." >&2
+              exit 1
+            fi
+            echo "::error::Automation-authored pull requests are dependency proposals only. Promote the reviewed commit to a maintainer-owned branch before merge."
+            exit 1
           elif [[ "$PLAN_RESULT" != "skipped" || "$PLAN_COMMENT_RESULT" != "skipped" ]]; then
             echo "A fork or manual run unexpectedly reached a privileged job." >&2
             exit 1
