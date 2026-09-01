@@ -368,15 +368,28 @@ may see object names beneath the same component prefix; that metadata-only list
 permission does not grant `GetObject` on the other environment's state.
 
 The workload plan roles receive only the S3 and CloudFront reads required to
-refresh the current static-site root. Workload deploy roles receive those reads
-plus lifecycle management for the environment's deterministic site-bucket ARN,
+refresh the current static-site root, including public site objects beneath the
+environment's exact bucket ARN. Workload deploy roles receive those reads plus
+lifecycle management for those exact objects, the deterministic site bucket,
 its account-local CloudFront origin access controls, and distributions carrying
-both `Project=money-on-record` and the matching `Environment` tag. CloudFront
-managed-policy list APIs and origin-access-control creation require
-`Resource = "*"`; do not broaden any other statement to compensate. Artifact
-object uploads, CloudFront invalidations, ACM, WAF, ECS, and ETL permissions are
-not included and require later reviewed foundation changes when their workflows
-and resources exist.
+both `Project=money-on-record` and the matching `Environment` tag. This lets one
+saved Terraform plan describe infrastructure and browser artifact changes, and
+one apply complete the environment deployment. Neither environment can read or
+mutate the other environment's bucket or objects.
+
+Treat each site bucket as public-delivery storage even though S3 access remains
+private behind CloudFront. Never place credentials, secrets, private source
+material, or non-public application data in it. Terraform plan access spans
+the exact environment bucket because provider refresh requires object metadata
+for every Terraform-owned site key.
+
+CloudFront managed-policy list APIs, origin-access-control creation, and
+response-header policy creation require `Resource = "*"`; do not broaden any
+other statement to compensate. CloudFront invalidations are unnecessary because
+HTML and manifests use revalidation cache controls while assets have
+content-addressed names. ACM, WAF, ECS, and ETL permissions are not included and
+require later reviewed foundation changes when their workflows and resources
+exist.
 
 Create and inspect the final access plan:
 

@@ -1,10 +1,11 @@
 locals {
   money_on_record_static_site_resources = {
     for environment, configuration in local.money_on_record_environments : environment => {
-      account_id                = configuration.account_id
-      bucket_arn                = "arn:aws:s3:::money-on-record-${environment}-${configuration.account_id}-site"
-      distribution_arn          = "arn:aws:cloudfront::${configuration.account_id}:distribution/*"
-      origin_access_control_arn = "arn:aws:cloudfront::${configuration.account_id}:origin-access-control/*"
+      account_id                  = configuration.account_id
+      bucket_arn                  = "arn:aws:s3:::money-on-record-${environment}-${configuration.account_id}-site"
+      distribution_arn            = "arn:aws:cloudfront::${configuration.account_id}:distribution/*"
+      origin_access_control_arn   = "arn:aws:cloudfront::${configuration.account_id}:origin-access-control/*"
+      response_headers_policy_arn = "arn:aws:cloudfront::${configuration.account_id}:response-headers-policy/*"
     }
   }
 
@@ -34,6 +35,13 @@ locals {
         ]
         resources = [resources.bucket_arn]
       }
+      ReadStaticSiteObjects = {
+        actions = [
+          "s3:GetObject",
+          "s3:GetObjectTagging",
+        ]
+        resources = ["${resources.bucket_arn}/*"]
+      }
       # CloudFront's managed-policy discovery APIs do not support resource ARNs.
       DiscoverManagedCloudFrontPolicies = {
         actions = [
@@ -55,6 +63,13 @@ locals {
           "cloudfront:GetResponseHeadersPolicyConfig",
         ]
         resources = ["arn:aws:cloudfront::${resources.account_id}:response-headers-policy/67f7725c-6f97-4210-82d7-5512b31e9d03"]
+      }
+      ReadStaticSiteResponseHeadersPolicies = {
+        actions = [
+          "cloudfront:GetResponseHeadersPolicy",
+          "cloudfront:GetResponseHeadersPolicyConfig",
+        ]
+        resources = [resources.response_headers_policy_arn]
       }
       ReadStaticSiteDistribution = {
         actions = [
@@ -209,6 +224,28 @@ locals {
             "cloudfront:UpdateOriginAccessControl",
           ]
           resources = [resources.origin_access_control_arn]
+        }
+        # Response headers policies cannot be tagged. Creation is unscoped by
+        # AWS, while updates and deletion remain in the target workload account.
+        CreateStaticSiteResponseHeadersPolicy = {
+          actions   = ["cloudfront:CreateResponseHeadersPolicy"]
+          resources = ["*"]
+        }
+        ManageStaticSiteResponseHeadersPolicy = {
+          actions = [
+            "cloudfront:DeleteResponseHeadersPolicy",
+            "cloudfront:UpdateResponseHeadersPolicy",
+          ]
+          resources = [resources.response_headers_policy_arn]
+        }
+        ManageStaticSiteObjects = {
+          actions = [
+            "s3:DeleteObject",
+            "s3:DeleteObjectTagging",
+            "s3:PutObject",
+            "s3:PutObjectTagging",
+          ]
+          resources = ["${resources.bucket_arn}/*"]
         }
       },
     )
