@@ -238,10 +238,16 @@ locals {
           ]
           resources = [resources.response_headers_policy_arn]
         }
+        # aws_s3_object removes all versions of a retired artifact key.
+        ListStaticSiteObjectVersions = {
+          actions   = ["s3:ListBucketVersions"]
+          resources = [resources.bucket_arn]
+        }
         ManageStaticSiteObjects = {
           actions = [
             "s3:DeleteObject",
             "s3:DeleteObjectTagging",
+            "s3:DeleteObjectVersion",
             "s3:PutObject",
             "s3:PutObjectTagging",
           ]
