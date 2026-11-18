@@ -100,7 +100,7 @@ resource "aws_s3_bucket_policy" "foundation" {
 
 module "account_public_access" {
   source  = "terraform-aws-modules/s3-bucket/aws//modules/account-public-access"
-  version = "5.15.4"
+  version = "5.17.0"
 
   account_id = var.management_account_id
 
