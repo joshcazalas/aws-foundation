@@ -2,19 +2,12 @@ name: Reusable foundation plan
 
 on:
   workflow_call:
-    inputs:
-      root:
-        description: Runnable Terraform root to plan.
-        required: true
-        type: string
     secrets:
       TF_VAR_account_emails:
         description: JSON account-email map required only by the organization root.
         required: false
 
-# The reusable workflow independently authorizes a same-repository Josh-owned
-# pull request before any job receives an OIDC token. Callers are pinned to an
-# immutable commit during the phase-two activation.
+# The pinned workflow owns the approval and the four jobs it releases.
 permissions: {}
 
 jobs:
@@ -28,6 +21,8 @@ jobs:
         env:
           CALLER_ACTION: ${{ github.event.action }}
           CALLER_ACTOR_ID: ${{ github.actor_id }}
+          PR_AUTHOR_ID: ${{ github.event.pull_request.user.id }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           CALLER_BASE_REF: ${{ github.event.pull_request.base.ref }}
           CALLER_BASE_REPOSITORY_ID: ${{ github.event.pull_request.base.repo.id }}
           CALLER_EVENT: ${{ github.event_name }}
@@ -40,20 +35,12 @@ jobs:
           CALLER_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
           CALLER_WORKFLOW_REF: ${{ github.workflow_ref }}
           EXPECTED_ACTOR_ID: '73436834'
+          DEPENDABOT_ID: '49699333'
           EXPECTED_OWNER_ID: '73436834'
           EXPECTED_REPOSITORY: joshcazalas/aws-foundation
           EXPECTED_REPOSITORY_ID: '1346584597'
-          REQUESTED_ROOT: ${{ inputs.root }}
         run: |
           set -euo pipefail
-          case "$REQUESTED_ROOT" in
-            terraform/bootstrap/management-state|terraform/organization|terraform/platform|terraform/github)
-              ;;
-            *)
-              echo "::error::Unrecognized Terraform root: $REQUESTED_ROOT"
-              exit 1
-              ;;
-          esac
           [[ "$CALLER_EVENT" == "pull_request" ]] || {
             echo "::error::Authenticated foundation plans require a pull-request event."
             exit 1
@@ -75,10 +62,6 @@ jobs:
             echo "::error::Unexpected foundation plan caller workflow."
             exit 1
           }
-          [[ "$CALLER_ACTOR_ID" == "$EXPECTED_ACTOR_ID" && "$CALLER_TRIGGERING_ACTOR" == "joshcazalas" ]] || {
-            echo "::error::Only Josh-triggered pull requests receive AWS-backed plans."
-            exit 1
-          }
           [[ "$CALLER_REPOSITORY" == "$EXPECTED_REPOSITORY" ]] || {
             echo "::error::Unexpected foundation repository."
             exit 1
@@ -95,10 +78,55 @@ jobs:
             echo "::error::Fork pull requests receive static validation only."
             exit 1
           }
+          case "$PR_AUTHOR_ID" in
+            "$EXPECTED_ACTOR_ID")
+              [[ "$CALLER_ACTOR_ID" == "$EXPECTED_ACTOR_ID" && "$CALLER_TRIGGERING_ACTOR" == "joshcazalas" ]]
+              ;;
+            "$DEPENDABOT_ID")
+              [[ "$PR_HEAD_REF" == dependabot/opentofu/* ]]
+              [[ "$CALLER_ACTOR_ID" == "$DEPENDABOT_ID" || "$CALLER_ACTOR_ID" == "$EXPECTED_ACTOR_ID" ]]
+              [[ "$CALLER_TRIGGERING_ACTOR" == 'dependabot[bot]' || "$CALLER_TRIGGERING_ACTOR" == "joshcazalas" ]]
+              ;;
+            *)
+              echo "::error::Unrecognized pull-request author."
+              exit 1
+              ;;
+          esac
+
+  review:
+    name: Approve Dependabot plan for PR ${{ github.event.pull_request.number }} at ${{ github.event.pull_request.head.sha }}
+    needs: authorize
+    if: github.event.pull_request.user.id == 49699333
+    environment: dependabot-plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: read
+    steps:
+      - name: Verify Josh approved this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" |
+            jq -e 'any(.[]; .user.id == 73436834 and .state == "approved"
+              and any(.environments[]; .name == "dependabot-plan"))' >/dev/null
 
   plan:
-    name: Plan ${{ inputs.root }}
-    needs: authorize
+    name: Plan ${{ matrix.root }}
+    needs: [authorize, review]
+    if: >-
+      needs.authorize.result == 'success' && !cancelled() &&
+      ((github.event.pull_request.user.id == 49699333 && needs.review.result == 'success') ||
+       (github.event.pull_request.user.id == 73436834 && needs.review.result == 'skipped'))
+    strategy:
+      fail-fast: false
+      matrix:
+        root:
+          - terraform/bootstrap/management-state
+          - terraform/github
+          - terraform/organization
+          - terraform/platform
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -163,8 +191,9 @@ jobs:
         if: steps.aws.outcome == 'success'
         continue-on-error: true
         env:
-          REQUESTED_ROOT: ${{ inputs.root }}
-          TF_VAR_account_emails: ${{ inputs.root == 'terraform/organization' && secrets.TF_VAR_account_emails || '' }}
+          REQUESTED_ROOT: ${{ matrix.root }}
+          DEPENDABOT_PLAN: ${{ github.event.pull_request.user.id == 49699333 }}
+          TF_VAR_account_emails: ${{ matrix.root == 'terraform/organization' && secrets.TF_VAR_account_emails || '' }}
         run: |
           set -euo pipefail
           bash trusted/scripts/run-foundation-plan.sh \
@@ -178,7 +207,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: foundation-plan-${{ inputs.root == 'terraform/bootstrap/management-state' && 'management-state' || inputs.root == 'terraform/organization' && 'organization' || inputs.root == 'terraform/platform' && 'platform' || 'github' }}
+          name: foundation-plan-${{ matrix.root == 'terraform/bootstrap/management-state' && 'management-state' || matrix.root == 'terraform/organization' && 'organization' || matrix.root == 'terraform/platform' && 'platform' || 'github' }}
           path: plan-result
           if-no-files-found: error
           retention-days: 7

@@ -9,6 +9,8 @@ updates:
       - "/terraform/modules/*"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
       shared-dependencies:
         patterns:

@@ -19,6 +19,23 @@ case "$terraform_root" in
   terraform/organization)
     result_slug="organization"
     scopes=(management)
+    if [[ "${DEPENDABOT_PLAN:-false}" == true ]]; then
+      # Dependabot runs cannot read the repository Actions secret. The plan
+      # role already reads these three managed accounts during refresh.
+      TF_VAR_account_emails="$(
+        aws organizations list-accounts --output json |
+          jq -ce '
+            [.Accounts[] | select(.Name == "deployment" or .Name == "workloads-uat" or .Name == "workloads-prod")]
+            | if length == 3 and (map(.Name) | unique | length) == 3
+                 and all(.[]; .Email | type == "string" and length > 0)
+              then map({key: .Name, value: .Email}) | from_entries
+              else error("Expected three distinct foundation accounts with email addresses") end'
+      )"
+      while IFS= read -r email; do
+        echo "::add-mask::$email"
+      done < <(jq -r '.[]' <<< "$TF_VAR_account_emails")
+      export TF_VAR_account_emails
+    fi
     if [[ -z "${TF_VAR_account_emails:-}" ]]; then
       echo "TF_VAR_account_emails is required for the organization plan." >&2
       exit 65

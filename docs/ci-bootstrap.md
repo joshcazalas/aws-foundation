@@ -145,6 +145,26 @@ temporary directory. Only redacted CLI text, a sanitized address/action
 manifest, and a SHA-256 digest of the canonical resource/output change
 projection are uploaded for the no-AWS-permission comment job.
 
+## Rotating the pull-request planner
+
+The organization role trusts an exact reusable-workflow commit. Rotate it in
+two merges. First, add the new reviewed commit to the role's trust alongside
+the current pin. Wait for the organization apply on `main` to succeed. Then
+switch the PR caller to the new pin and remove the old pin from IAM. The
+second PR can run its own plans with the new revision before you merge it.
+
+The Dependabot planner uses the `dependabot-plan` GitHub Environment with
+Josh as its sole required reviewer. To reproduce the repository setting, run
+the following from the checkout containing its reviewed governance definition.
+
+```sh
+gh api --method PUT repos/joshcazalas/aws-foundation/environments/dependabot-plan \
+  --input .github/governance/dependabot-plan-environment.json
+```
+
+The pinned workflow checks GitHub's approval record for the current run
+before releasing the four AWS jobs.
+
 ## Main-only apply activation
 
 Pull-request subjects remain planning-only. Never broaden an apply role to the

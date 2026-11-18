@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+import subprocess
 import unittest
 from pathlib import Path
+from textwrap import dedent
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -42,10 +45,47 @@ class FoundationWorkflowBoundaryTests(unittest.TestCase):
         self.assertIn("github.event.pull_request.head.repo.id", authorize)
         self.assertIn("github.actor_id", authorize)
         self.assertIn("github.triggering_actor", authorize)
-        self.assertIn("needs: authorize", plan)
+        self.assertIn("needs: [authorize, review]", plan)
+        self.assertIn("needs.authorize.result == 'success'", plan)
+        self.assertIn("github.event.pull_request.user.id == 49699333 && needs.review.result == 'success'", plan)
+        self.assertIn("github.event.pull_request.user.id == 73436834 && needs.review.result == 'skipped'", plan)
         self.assertIn("id-token: write", plan)
         self.assertIn("job.workflow_sha", plan)
         self.assertIn("job.workflow_repository", plan)
+
+    def test_dependabot_review_requires_josh_and_the_plan_environment_on_this_run(self) -> None:
+        source = (REPOSITORY_ROOT / ".github/workflows/reusable-foundation-plan.yml").read_text()
+        review = source.split("  review:\n", 1)[1].split("  plan:\n", 1)[0]
+        self.assertIn("environment: dependabot-plan", review)
+        self.assertIn("needs: authorize", review)
+        self.assertNotIn("actions/checkout", review)
+        self.assertNotIn("strategy:", review)
+        verify = dedent(review.split("        run: |\n", 1)[1])
+        mock_api = """
+            gh() {
+              [[ "$*" == "api repos/test/foundation/actions/runs/42/approvals" ]] || return 1
+              cat
+            }
+            GITHUB_REPOSITORY=test/foundation
+            GITHUB_RUN_ID=42
+        """
+        approval = {
+            "state": "approved",
+            "user": {"id": 73436834},
+            "environments": [{"name": "dependabot-plan"}],
+        }
+        for reviews, allowed in [
+            ([], False),
+            ([approval], True),
+            ([{**approval, "user": {"id": 1}}], False),
+            ([{**approval, "environments": [{"name": "production"}]}], False),
+            ([{**approval, "state": "rejected"}], False),
+        ]:
+            with self.subTest(reviews=reviews):
+                result = subprocess.run(
+                    ["bash", "-c", dedent(mock_api) + verify], input=json.dumps(reviews), text=True
+                )
+                self.assertEqual(result.returncode == 0, allowed)
 
     def test_required_check_handles_same_repository_and_fork_prs(self) -> None:
         source = (REPOSITORY_ROOT / ".github/workflows/pr.yml").read_text(

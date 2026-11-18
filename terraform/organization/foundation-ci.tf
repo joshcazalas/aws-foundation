@@ -23,7 +23,11 @@ locals {
     {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:job_workflow_ref"
-      values   = [var.foundation_plan_job_workflow_ref]
+      # Both reviewed revisions must work while the PR caller moves to the new planner.
+      values = [
+        var.foundation_plan_job_workflow_ref,
+        "joshcazalas/aws-foundation/.github/workflows/reusable-foundation-plan.yml@a5ef77db4d9c2d3d0eebc73170412105b0326bd5",
+      ]
     },
     {
       test     = "StringEquals"
