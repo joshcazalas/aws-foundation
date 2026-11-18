@@ -76,6 +76,8 @@ jobs:
         with:
           tflint_version: ${{ env.TFLINT_VERSION }}
       - run: tflint --init --config .tflint.hcl
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - run: >-
           tflint --chdir="${{ matrix.root }}"
           --config="${{ github.workspace }}/.tflint.hcl"
