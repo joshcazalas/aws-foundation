@@ -134,7 +134,10 @@ bootstrap sequence.
 Pull-request CI runs formatting, hygiene, per-root validation and TFLint,
 workflow/script linting, tested plan-result rendering, and—only for branches in
 this repository—four no-lock read-only plans through the trusted reusable
-workflow on `main`. Fork pull requests receive offline checks only. The sticky
+workflow pinned by commit. Dependabot checks provider and module versions
+weekly with a seven-day cooldown. Its static checks run immediately. Josh
+approves each Dependabot PR revision once to release all four plans. Fork
+pull requests receive offline checks only. The sticky
 plan comment is ordered Production, UAT, Deployment, Management, then GitHub;
 it never serves as an apply artifact.
 

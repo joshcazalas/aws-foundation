@@ -8,7 +8,7 @@ from textwrap import dedent
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-TRUSTED_PLAN_WORKFLOW_SHA = "e2ac7f640c87bae963709a844c7e9adee610f098"
+TRUSTED_PLAN_WORKFLOW_SHA = "a5ef77db4d9c2d3d0eebc73170412105b0326bd5"
 
 
 class FoundationWorkflowBoundaryTests(unittest.TestCase):
