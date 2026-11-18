@@ -118,23 +118,15 @@ jobs:
         run: python3 -m unittest discover -s tests -v
 
   plan:
-    name: Trusted plan (${{ matrix.root }})
+    name: Trusted foundation plans
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    strategy:
-      fail-fast: false
-      matrix:
-        root:
-          - terraform/bootstrap/management-state
-          - terraform/github
-          - terraform/organization
-          - terraform/platform
     permissions:
+      actions: read
       contents: read
       id-token: write
-    uses: joshcazalas/aws-foundation/.github/workflows/reusable-foundation-plan.yml@e2ac7f640c87bae963709a844c7e9adee610f098
-    with:
-      root: ${{ matrix.root }}
-    secrets: inherit
+    uses: joshcazalas/aws-foundation/.github/workflows/reusable-foundation-plan.yml@a5ef77db4d9c2d3d0eebc73170412105b0326bd5
+    secrets:
+      TF_VAR_account_emails: ${{ secrets.TF_VAR_account_emails }}
 
   plan-comment:
     name: Terraform plan comment

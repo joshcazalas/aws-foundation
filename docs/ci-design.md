@@ -121,11 +121,13 @@ requests fail unless offline checks succeed and both privileged jobs are
 skipped. The public `main` ruleset requires only this aggregate context, so it
 does not depend on conditionally absent reusable-workflow check names.
 
-The pinned reusable planner independently enforces this boundary before its
-OIDC-enabled job starts. It requires Josh's immutable actor ID, Josh as the
-rerun initiator, this repository's immutable head/base IDs, `main` as the base,
-the exact PR merge ref caller, and an allowlisted root. A fork cannot bypass
-that check by editing the caller workflow.
+The pinned reusable planner verifies this repository's immutable head/base
+IDs, the `main` base, and the exact PR merge ref caller before starting any
+OIDC-enabled job. Josh's own PRs plan automatically. Dependabot OpenTofu PRs
+also require the bot's immutable author ID and an actor and rerun initiator
+belonging to Josh or Dependabot. The planner checks Josh's approval for the
+current run in the `dependabot-plan` environment, then starts all four roots.
+A new PR revision starts a new run and needs its own approval.
 
 Each foundation plan job receives only:
 
@@ -162,10 +164,10 @@ sanitized text result to the comment job. Sanitized result artifacts are
 retained for seven days; the complete redacted text also remains in the plan
 job log linked by the comment.
 
-The organization root receives its sensitive `account_emails` variable from a
-repository Actions secret named `TF_VAR_account_emails`. It is not an AWS
-credential. It is available only to that plan job and must never be printed or
-passed to the commenter.
+For Josh's runs, the organization root receives its sensitive `account_emails`
+variable from the repository Actions secret `TF_VAR_account_emails`. Approved
+Dependabot organization plans read the three managed accounts from AWS
+Organizations and mask their addresses on the runner.
 
 The GitHub-provider root uses `-refresh=false` in pull-request CI. The built-in
 `GITHUB_TOKEN` does not offer the Environment and Variables API permissions
