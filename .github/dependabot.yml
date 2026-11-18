@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: "opentofu"
+    directories:
+      - "/terraform/bootstrap/management-state"
+      - "/terraform/github"
+      - "/terraform/organization"
+      - "/terraform/platform"
+      - "/terraform/modules/*"
+    schedule:
+      interval: "weekly"
+    groups:
+      shared-dependencies:
+        patterns:
+          - "*"
+        group-by: "dependency-name"
