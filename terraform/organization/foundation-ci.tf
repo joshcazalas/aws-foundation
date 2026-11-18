@@ -152,7 +152,7 @@ resource "aws_iam_openid_connect_provider" "foundation_github_actions" {
 
 module "foundation_plan_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role"
-  version = "6.8.0"
+  version = "6.8.2"
 
   name                 = "AWSFoundationTerraformPlan"
   use_name_prefix      = false

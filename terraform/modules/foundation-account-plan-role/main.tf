@@ -30,7 +30,7 @@ locals {
 
 module "this" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role"
-  version = "6.8.0"
+  version = "6.8.2"
 
   name                 = var.role_name
   use_name_prefix      = false
