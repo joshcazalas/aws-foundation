@@ -138,7 +138,7 @@ locals {
 
 module "plan_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role"
-  version = "6.8.0"
+  version = "6.8.2"
 
   name                 = var.plan_role_name
   use_name_prefix      = false
@@ -163,7 +163,7 @@ module "plan_role" {
 
 module "deploy_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role"
-  version = "6.8.0"
+  version = "6.8.2"
 
   name                 = var.deploy_role_name
   use_name_prefix      = false
