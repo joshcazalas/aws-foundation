@@ -1,0 +1,10 @@
+{
+  "reviewers": [
+    {
+      "type": "User",
+      "id": 73436834
+    }
+  ],
+  "can_admins_bypass": false,
+  "prevent_self_review": false
+}
