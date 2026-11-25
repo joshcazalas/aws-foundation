@@ -261,7 +261,7 @@ locals {
 
 module "foundation_management_state_apply_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role"
-  version = "6.8.2"
+  version = "6.11.1"
 
   name                 = local.foundation_apply_role_names.management_state
   use_name_prefix      = false
@@ -294,7 +294,7 @@ module "foundation_management_state_apply_role" {
 
 module "foundation_organization_apply_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role"
-  version = "6.8.2"
+  version = "6.11.1"
 
   name                 = local.foundation_apply_role_names.organization
   use_name_prefix      = false
@@ -325,7 +325,7 @@ module "foundation_organization_apply_role" {
 
 module "foundation_platform_apply_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role"
-  version = "6.8.2"
+  version = "6.11.1"
 
   name                 = local.foundation_apply_role_names.platform
   use_name_prefix      = false
