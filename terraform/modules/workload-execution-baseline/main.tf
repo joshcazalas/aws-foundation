@@ -1,6 +1,6 @@
 module "account_public_access" {
   source  = "terraform-aws-modules/s3-bucket/aws//modules/account-public-access"
-  version = "5.17.0"
+  version = "5.18.0"
 
   account_id = var.account_id
 
